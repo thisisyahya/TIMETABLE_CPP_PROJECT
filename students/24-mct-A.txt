@@ -1,0 +1,38 @@
+Electric Circuit Devices 
+Materials and Manufacturing Process 
+Data Structure and Algorithms
+Engineering Dynamics
+Electric Circuit Devices Lab
+SolidWorks
+Linear Algebra
+Data Structure and Algorithms Lab
+Math
+\0-0\
+Sir Asif
+Sir Zubair
+Sir Khurrum
+Sir Shahbaaz
+Mam Tehmena
+Prof. Arman
+Prof. A
+\0-0\
+main-lecture-hall
+2nd-lecture-hall
+\0-0\
+8
+6
+1004
+1009
+0
+8
+6
+1100
+1200
+1
+\0-0\
+\0-0\
+\0-0\
+\0-0\
+\0-0\
+\0-0\
+\0-0\
