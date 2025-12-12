@@ -1,18 +1,21 @@
 #include "StudentTable.h"
+#include "ProfessorTable.h"
 #include<map>
 
 int main()
 {
-    StudentTable mct_A_24("students/24-mct-A.txt");
-    // map< string, StudentTable> student_tables;
+    //StudentTable mct_A_24("students/24-mct-A.txt");
+    map< string, StudentTable> student_tables;
 
-    // student_tables.emplace("24-mct-A", StudentTable("24-mct-A.txt"));
+   ProfessorTable p_all = ProfessorTable(); // Also works
 
-    // auto it = student_tables.find("24-mct-A");
+    student_tables.emplace("24-mct-A", StudentTable("24-mct-A.txt"));
 
-   // it->second.insert("Prof. A", "Math", {1100, 1200}, 0, "2nd-lecture-hall");
+    auto it = student_tables.find("24-mct-A");
+
+   //it->second.insert("Prof. A", "Math", {1100, 1200}, 0, "2nd-lecture-hall");
     
-    mct_A_24.insert("Prof. A", "Math", {1100, 1200}, 0, "2nd-lecture-hall");
+   /// mct_A_24.insert("Prof. A", "Math", {22100, 12200}, 0, "2nd-lecture-hall");
 
     return 0;
 }

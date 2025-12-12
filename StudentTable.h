@@ -9,16 +9,16 @@ using namespace std;
 
 struct Temp_Header
 {
-    int headerValues[9];
     vector<string> subjects;
     vector<string> profs;
+    vector<string> rooms;
+
     bool hasSubjects = false;
     bool hasProfs = false;
     bool hasRooms = false;
-    int linesCount = 0;
-    int metaCount = 0;
+
     int day = 0;
-    int subMeta[4];
+    vector<int> meta;
 };
 
 struct Timetable
@@ -26,9 +26,9 @@ struct Timetable
     vector<string> professors;
     vector<string> rooms;
     vector<string> subjects;
+    vector<char> groups;
     vector<array<int, 5>> day[7];
 };
-
 
 
 class StudentTable
@@ -36,7 +36,7 @@ class StudentTable
 private:
     Timetable t;
     string file;
-    string session;
+    //string session;
     
 public:
     Temp_Header temp;

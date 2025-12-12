@@ -3,30 +3,18 @@
 StudentTable::StudentTable(const string &file)
 {
     this->file = file;
+  //  this->session = session;
 
     ifstream in(file);
 
     if(!in.is_open()){
-        throw runtime_error("file not found");
+        //throw runtime_error("file not found");
+        cout<<"File not found!"<<endl;
        //cout<<"creating new file"<<endl;
     }
-
+else{
      deseriallizeTable(in);
-    // else{
-    //    ofstream out(file);
-
-    //    try{
-    //    if(out.is_open()){
-    //     cout<<"File created successfully";
-    //    }
-    //   cout << "constructor says : reconstructing timetable in memory ..." << endl;
-    // deseriallizeTable(in);
-    // }
-    // catch(const exception& e){
-    //     cout<<"Error occoured in deseriilized function --> : "<<e.what()<<endl;
-    // }
-    
-    // }
+}
 
 }
 
@@ -36,7 +24,7 @@ void StudentTable::deseriallizeTable(ifstream &in)
     string line;
     while (getline(in, line))
     {
-        temp.linesCount++;
+        // temp.linesCount++;
      //   cout << "Line read: \"" << line << "\"" << endl;
 
         if (line == "")
@@ -77,37 +65,28 @@ void StudentTable::deseriallizeTable(ifstream &in)
             continue;
         }
 
-        if (temp.metaCount < 5)
-        {
-            if (line == "\\0-0\\")
-            {
-                temp.day++;
-                continue;
-            }
-            temp.subMeta[temp.metaCount] = stoi(line);
-          cout << "making subjects mappings!!! : " << temp.metaCount << " : " << temp.subMeta[temp.metaCount] << endl << endl;
-            temp.metaCount++;
-            continue;
-        }
-        else if (temp.metaCount == 5)
-        {
-            t.day[temp.day].push_back({temp.subMeta[0], temp.subMeta[1], temp.subMeta[2], temp.subMeta[3], temp.subMeta[4]});
-            temp.metaCount = 0;
 
-            if (line == "\\0-0\\")
-            {
-                temp.day++;
-                continue;
-            }
-            temp.subMeta[temp.metaCount] = stoi(line);
-          //  cout << "making subjects mappings!!! : " << temp.metaCount << " : " << temp.subMeta[temp.metaCount] << endl << endl;
-            temp.metaCount++;
-            continue;
-        }
-        else
-        {
-           // cout << "ends here!!!" << endl;
-            continue;
+
+        
+        if(temp.day<7 && line=="\\0-0\\"){
+
+           for(int i = 0; i<temp.meta.size()/5; i++){
+          //  cout<<"slots in day is "<<temp.meta.size()/5<<endl;
+              t.day[temp.day].push_back({
+    temp.meta[i*5],
+    temp.meta[i*5 + 1],
+    temp.meta[i*5 + 2],
+    temp.meta[i*5 + 3],
+    temp.meta[i*5 + 4]
+});
+
+           }
+       temp.meta.clear();
+       temp.day++;
+        }else{
+            int num = stoi(line);
+             temp.meta.push_back(num);
+            // cout<<"pushing : "<<line<<" in mapping"<<endl;
         }
     }
 

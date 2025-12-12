@@ -14,16 +14,19 @@ using namespace std;
 
 struct Temp_Header
 {
-    int headerValues[9];
+
     vector<string> subjects;
     vector<string> profs;
+    vector<string> rooms;
     bool hasSubjects = false;
     bool hasProfs = false;
     bool hasRooms = false;
-    int linesCount = 0;
-    int metaCount = 0;
-    int day = 0;
-    int subMeta[4];
+    // int linesCount = 0;
+    // int metaCount = 0;
+    // int day = 0;
+    // int subMeta[4];
+    vector<int> meta;
+    int day=0;
 };
 
 struct Timetable
@@ -77,7 +80,7 @@ void StudentTable::deseriallizeTable(ifstream &in)
     string line;
     while (getline(in, line))
     {
-        temp.linesCount++;
+        // temp.linesCount++;
 
         if (line == "")
             continue;
@@ -114,36 +117,31 @@ void StudentTable::deseriallizeTable(ifstream &in)
             continue;
         }
 
-        if (temp.metaCount < 5)
-        {
-            if (line == "\\0-0\\")
-            {
-                temp.day++;
-                continue;
-            }
-            temp.subMeta[temp.metaCount] = stoi(line);
-          cout << "making subjects mappings!!! : " << temp.metaCount << " : " << temp.subMeta[temp.metaCount] << endl << endl;
-            temp.metaCount++;
-            continue;
-        }
-        else if (temp.metaCount == 5)
-        {
-            t.day[temp.day].push_back({temp.subMeta[0], temp.subMeta[1], temp.subMeta[2], temp.subMeta[3], temp.subMeta[4]});
-            temp.metaCount = 0;
+       
 
-            if (line == "\\0-0\\")
-            {
-                temp.day++;
-                continue;
-            }
-            temp.subMeta[temp.metaCount] = stoi(line);
-            temp.metaCount++;
-            continue;
+       
+        if(temp.day<7 && line=="\\0-0\\"){
+
+           for(int i = 0; i<temp.meta.size()/5; i++){
+          //  cout<<"slots in day is "<<temp.meta.size()/5<<endl;
+              t.day[temp.day].push_back({
+    temp.meta[i*5],
+    temp.meta[i*5 + 1],
+    temp.meta[i*5 + 2],
+    temp.meta[i*5 + 3],
+    temp.meta[i*5 + 4]
+});
+
+           }
+       temp.meta.clear();
+       temp.day++;
+        }else{
+            int num = stoi(line);
+             temp.meta.push_back(num);
+            // cout<<"pushing : "<<line<<" in mapping"<<endl;
         }
-        else
-        {
-            continue;
-        }
+
+
     }
 
     cout<<"\n---------------Subjects------------\n";
@@ -316,9 +314,24 @@ bool StudentTable::insert(const string &professor, const string &subject,
 
 int main()
 {
-    StudentTable mct_A_24("students/24-mct-A.txt");
+    // StudentTable mct_A_24("students/24-mct-A.txt");
 
-    mct_A_24.insert("Prof. A", "Math", {1100, 1200}, 0, "2nd-lecture-hall");
+    map<string, StudentTable> s_tt;
+
+    s_tt.emplace("24-mct-A", StudentTable("../students/24-mct-A.txt"));
+
+    auto it = s_tt.find("24-mct-A");
+
+    if(it != s_tt.end()){
+        cout<<"Timetable found !!!\n";
+
+      //  it->second.insert("Prof. A", "Math", {1100, 1200}, 0, "2nd-lecture-hall");
+    }
+    else{
+        cout<<"Timetable not found";
+    }
+
+   // mct_A_24.insert("Prof. A", "Math", {1100, 1200}, 0, "2nd-lecture-hall");
 
     return 0;
 }

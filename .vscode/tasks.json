@@ -9,6 +9,7 @@
                 "-g",
                 "main.cpp",
                 "StudentTable.cpp",
+                 "ProfessorTable.cpp",
                 "-o",
                 "main.exe"
             ],
