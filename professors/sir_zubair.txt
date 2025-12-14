@@ -1,21 +1,21 @@
 Engineering Dynamics
 Materials and Manufacturing Process
 \0-0\
-00F
+24-mct-A
 \0-0\
 LH#1
 \0-0\
 0
 810
 950
-00F
 0
+00F
 \0-0\
 0
 760
 910
-00F
 0
+00F
 \0-0\
 \0-0\
 \0-0\

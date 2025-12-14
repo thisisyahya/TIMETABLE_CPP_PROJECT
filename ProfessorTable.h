@@ -19,12 +19,17 @@ struct P_Temp_Header
     bool hasRooms = false;
     
     int day = 0;
-    vector<int> meta;   //stores session, subject, start, end, room
+
+
+    array<int, 4> details;
+    vector<string> sessionCodes;
+
+    int counter = 0;
 };
 
-struct p_subjMeta{
-    int details[4];  //subject, start, end, room
-    vector<string> sessionsCode;   // how many sessions
+struct Mapping{
+    array<int, 4> details;  //subject, start, end, room
+    vector<string> sessionsCode;  // how many sessions
 };
 
 struct P_timetable
@@ -32,7 +37,7 @@ struct P_timetable
     vector<string> sessions;
     vector<string> rooms;
     vector<string> subjects;
-    vector<p_subjMeta> day[7];
+    vector<Mapping> day[7];
 };
 
 
@@ -42,12 +47,13 @@ class ProfessorTable
 private:
     P_timetable t;
     const string folderPath = "professors";
+    string professorName;
     static vector<string> professors_timeTable_name;
 
 public:
     P_Temp_Header temp;
 
-    ProfessorTable();
+    ProfessorTable(const string professorFileName);
 
     void deseriallize(const string& fileName);
 
