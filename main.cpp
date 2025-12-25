@@ -7,9 +7,9 @@
 #include<filesystem>
 
 
-
 using namespace std;
 namespace fs = filesystem;
+ 
 
 const string professors_folder_path = "professors";
 const string students_folder_path = "students";
@@ -25,13 +25,14 @@ struct Professor_Timetable {
     vector<string> rooms;
     vector<Mapping> days[7];
 };
+
 struct Insert{
+
     string subject;
-    vector<pair<string, string>> session;
+    vector<pair<string, string>> session;  
     string room;
     int day;
-        pair<int, int> dur;
-    // string sessionCode;
+    pair<int, int> dur;
 
 };
 
@@ -39,6 +40,9 @@ struct  Delete{
   int day;
   int start_time;
 };
+
+
+
 
 struct Student_timetable_mapping{
     int mapDetails[5];
@@ -78,14 +82,19 @@ class Timetable{   //base abstract class
 class StudentTable : public Timetable{
     
     private:
-   Student_Timetable& s = getStudentTimetable();
+   
 
    public:
+//    Student_Timetable& s = getStudentTimetable();
    string className;
+   Student_Timetable s;
 
    void  printTimetable() override;
 
 };
+
+    map<string, StudentTable> studentTables;
+        
 
 void StudentTable::printTimetable() {
     // Access the student timetable
@@ -183,68 +192,95 @@ ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCre
         if(!firstCreation){
             
             this->read(professorFileLocation);
-            
-               
-                
-        //         for(const auto& mapping : t.days){
-                    
-        //             for(const auto& slot : mapping){
-                        
-        //                 int sessionIndex;
-
-        //                 int itr;
-        //                 for(string groupCode : slot.groupCodes){
-        //                 sessionIndex = int(groupCode[0]);
-
-        //                 if(t.sessions[sessionIndex] == session){ groups.push_back(groupCode[1]);
-                           
-        //                     s.subjects.push_back(t.subjects[slot.mapDetails[0]]);
-                           
-        //                     if(itr == slot.groupCodes.size()-1){
-        //                          s.days[n].push_back({{static_cast<int>((s.profs.size()-1)),slot.mapDetails[0], slot.mapDetails[1], slot.mapDetails[2], slot.mapDetails[3]} ,{groups}});
-        //                  groups = {}; //empty gorup vector
-        //                     }
-
-        //                 }
-
-                        
-        //             }
-                    
-        //         }
-
-        //     }
-
-        //     n++;
-
-         // }
-    }
-        else if(firstCreation) this->write(professorFileLocation, newT);
-        
-
-        
-        //    int n = 0;
+             vector<char> groups;
+                 
             for(const string& session : t.sessions){
-                cout<<"\n\n---------\n-----------\n-------------\n-----------"<<session<<"\n------------\n---------------\n"<<endl;
+              //  cout<<"\n\n---------\n-----------\n-------------\n-----------\n"<<session <<"\n"<<studentTables.size()<<"\n------------\n---------------\n"<<endl;
                 // auto& s = getStudentTimetable(); // get student timetable from abstract base class
-                vector<char> groups;
+               
 
-                StudentTable* student = new StudentTable();
+                if(studentTables.find(session) == studentTables.end()){
 
-                auto& s = student->getStudentTimetable();
-                s.profs.push_back(this->professorName);
+                    //cout<<"making new object in map "<<session<<endl;
+
+                studentTables.emplace(session, StudentTable());
+                }
+                // else{
+                //     cout<<session<<" already exist"<<endl;
+                // }
                 
+
+                studentTables[session].s.profs.push_back(this->professorName);
+
 
                 ofstream out(students_folder_path+"/"+session+".bin");
-                
+
                 if(!out.is_open()){
                     throw runtime_error("file opening error for session");
                 }
                
-                student->printTimetable();
-               
-            }
-          
+               out.close();
+            
+                 int n = 0;
+                for(const auto& mapping : t.days){
+                    
+                    for(const auto& slot : mapping){
+                        
+                        int sessionIndex;
+                        int itr = 0;
 
+                        for(string groupCode : slot.groupCodes){
+                        sessionIndex = int(groupCode[0] - '0');
+
+                        if(t.sessions[sessionIndex] == session){ 
+
+
+                            bool subjectFound = false;
+                          //  groups.push_back(groupCode[1]);
+                          for(string subject :studentTables[session].s.subjects){
+                            if(subject != t.subjects[slot.mapDetails[0]]){
+                                subjectFound = false;
+                            }
+                            else if(subject == t.subjects[slot.mapDetails[0]]){
+                                subjectFound = true;
+                            }
+                          }
+
+                          if(!subjectFound) studentTables[session].s.subjects.push_back(t.subjects[slot.mapDetails[0]]);
+
+                          subjectFound = false;
+                        }
+                    }
+                }
+            }
+                           
+                //         //     if(itr == slot.groupCodes.size()-1){
+                //         //          studentTables[session].s.days[n].push_back({{static_cast<int>((studentTables[session].s.profs.size()-1)),slot.mapDetails[0], slot.mapDetails[1], slot.mapDetails[2], slot.mapDetails[3]} ,{groups}});
+                //         //  groups = {}; //empty gorup vector
+                //         //     }
+
+                //         }
+
+                        
+                //     }
+                    
+                // }
+
+            
+
+            n++;
+
+
+    }
+
+    cout<<"\n\n-----PRINTING ALL STUDENT TIMETABLES LINKED TO THIS PROFESSOR-----\n\n"<<endl;
+    for(auto [session, object] : studentTables){
+            object.printTimetable();
+        }
+}
+        else if(firstCreation) this->write(professorFileLocation, newT);
+      
+             
 }
 
 void ProfessorTable:: printTimetable(){
@@ -399,7 +435,7 @@ void ProfessorTable :: read(const string& profFileLocation){
 
     t = readT;
 
-    this->printTimetable();   //this -> has timetable
+   // this->printTimetable();   //this -> has timetable
 
     in.close();
 }
