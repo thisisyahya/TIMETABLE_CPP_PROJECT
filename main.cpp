@@ -155,6 +155,7 @@ void StudentTable::printTimetable() {
 }
 
 
+
 class ProfessorTable : public Timetable
 {
 private:
@@ -178,7 +179,20 @@ static vector<string> professors_timeTable_name;
 
     bool handle_conflict(int day, pair<int, int> dur);
 
+    static void create_professor(string name){
+        
+       ofstream out("professors/"+name+".bin");
+       cout<<"File created successfully";
+
+      ProfessorTable* newProf = new ProfessorTable(name+".bin", false);
+      professors_timeTable_name.push_back(name+".bin"); //track professors record in class's static variable
+      delete newProf;
+
+    }
+
      void insert(Insert entry);
+
+     void deep_clean_and_realign();
 };
 
 
@@ -194,6 +208,7 @@ ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCre
             this->read(professorFileLocation);
              vector<char> groups;
                  
+             
             for(const string& session : t.sessions){
               //  cout<<"\n\n---------\n-----------\n-------------\n-----------\n"<<session <<"\n"<<studentTables.size()<<"\n------------\n---------------\n"<<endl;
                 // auto& s = getStudentTimetable(); // get student timetable from abstract base class
@@ -224,19 +239,28 @@ ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCre
                  int n = 0;
                 for(const auto& mapping : t.days){
                     
+                      int itr = 0;
                     for(const auto& slot : mapping){
-                        
+                      
                         int sessionIndex;
-                        int itr = 0;
+                        
 
                         for(string groupCode : slot.groupCodes){
+
+                          //  cout<<"Session is : "<< groupCode<<endl;
+
                         sessionIndex = int(groupCode[0] - '0');
+
+                        //cout<<"Session index is : "<< groupCode[0] - '0' <<" | "<<  groupCode[0]<<endl;
 
                         if(t.sessions[sessionIndex] == session){ 
 
 
                             bool subjectFound = false;
-                          //  groups.push_back(groupCode[1]);
+                            groups.push_back(groupCode[2]);
+
+                           // cout<<"group is : "<< groupCode[2]<<endl;
+
                           for(string subject :studentTables[session].s.subjects){
                             if(subject != t.subjects[slot.mapDetails[0]]){
                                 subjectFound = false;
@@ -251,31 +275,22 @@ ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCre
                           subjectFound = false;
                         }
                     }
+
+                         if(itr == slot.groupCodes.size()-1){
+                                 studentTables[session].s.days[n].push_back({{static_cast<int>((studentTables[session].s.profs.size()-1)),slot.mapDetails[0], slot.mapDetails[1], slot.mapDetails[2], slot.mapDetails[3]} ,{groups}});
+                         groups = {}; //empty gorup vector
+                            }
+                     itr++;
                 }
+                 n++; 
             }
-                           
-                //         //     if(itr == slot.groupCodes.size()-1){
-                //         //          studentTables[session].s.days[n].push_back({{static_cast<int>((studentTables[session].s.profs.size()-1)),slot.mapDetails[0], slot.mapDetails[1], slot.mapDetails[2], slot.mapDetails[3]} ,{groups}});
-                //         //  groups = {}; //empty gorup vector
-                //         //     }
-
-                //         }
-
-                        
-                //     }
-                    
-                // }
-
-            
-
-            n++;
 
 
     }
 
     cout<<"\n\n-----PRINTING ALL STUDENT TIMETABLES LINKED TO THIS PROFESSOR-----\n\n"<<endl;
     for(auto [session, object] : studentTables){
-            object.printTimetable();
+           // object.printTimetable();
         }
 }
         else if(firstCreation) this->write(professorFileLocation, newT);
@@ -435,7 +450,7 @@ void ProfessorTable :: read(const string& profFileLocation){
 
     t = readT;
 
-   // this->printTimetable();   //this -> has timetable
+   this->printTimetable();   //this -> has timetable
 
     in.close();
 }
@@ -528,10 +543,21 @@ void ProfessorTable::insert(Insert entry){
             if (t.rooms[i] == entry.room)
             {
                 roomFound = true;
-                indexOfRoom = i;
+                 indexOfRoom = i;
                 break;
             }
         }
+
+        for (int i = 0; i < t.subjects.size(); i++)
+        {         
+            if (t.subjects[i] == entry.subject)
+            {
+                subjectFound = true;
+                 indexOfSubject= i;
+                break;
+            }
+        }
+
 
         if (!roomFound)
         {
@@ -633,12 +659,28 @@ int main() {
     }
 
 
-    int choice;
-    cout<<"Enter Ypur choice :\n\n1. run deep analysis on all professor timetable files in the folder(recommended)\n2. dont run analysis(warning)\n\n";
-    cin>>choice;
+     char profch;
+  
+    cout<<"Create new profesor <<(y / n) : ";
+    cin>>profch;
+    
 
-    if(choice == 1){
-        cout<<"\nRunning deep analysis on all professor timetable files in the folder...\n"<<endl;
+        if(profch == 'y'){
+
+                 string name;
+        cout<<"Enter professor Name ---> ";
+        cin>>name;
+
+          ofstream out("professors/" +name+ ".bin");
+          ProfessorTable(professors_folder_path + "/" + name + ".bin", true);
+   
+          if(!out.is_open()){
+            throw runtime_error("erro creating new professor file!");
+          }
+        }
+
+
+        cout<<"\n\nRunning deep analysis on all professor timetable files in the folder...\n"<<endl;
     for (const auto& entry : fs::directory_iterator(professors_folder_path)) {
 
         cout<<"\n---------------------------------------------\n--------------------------------------------------\n";
@@ -653,19 +695,15 @@ int main() {
 
         }
     }
-}
-else if(choice == 2){
-    cout<<"Skipping deep analysis on professor timetable files...\n I took this step to avoid processing overhead. I thereby accepted the risk of incomplete analysis."<<endl;
-}
-else{
-    cout<<"Invalid choice! Exiting program."<<endl;
-    return 0;
-}
+
+
 
 while(true){
 
+    int n= 1;
     for(const string name : ProfessorTable::professors_timeTable_name){
-        cout<<name<< endl;
+        cout<<n<<". "<<name<< endl;
+        n++;
     }
     
         cout<<"\nSelect Professor Id : "<<endl;
@@ -673,7 +711,7 @@ while(true){
     int id;
     cin>>id;
 
-    ProfessorTable professor(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id], false);
+    ProfessorTable professor(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1], false);
     cout<<"Professor Selected: "<< professor.professorName <<endl;
 
 cout<<"\n\n------------------MENU------------------\n1. Insert Entry\n2. Delete Entry\n3. Hard Diagnostics\n4. Skip\n---------------------------------------\n";
