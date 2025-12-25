@@ -26,6 +26,8 @@ struct Professor_Timetable {
     vector<Mapping> days[7];
 };
 
+
+
 struct Insert{
 
     string subject;
@@ -659,25 +661,6 @@ int main() {
     }
 
 
-     char profch;
-  
-    cout<<"Create new profesor <<(y / n) : ";
-    cin>>profch;
-    
-
-        if(profch == 'y'){
-
-                 string name;
-        cout<<"Enter professor Name ---> ";
-        cin>>name;
-
-          ofstream out("professors/" +name+ ".bin");
-          ProfessorTable(professors_folder_path + "/" + name + ".bin", true);
-   
-          if(!out.is_open()){
-            throw runtime_error("erro creating new professor file!");
-          }
-        }
 
 
         cout<<"\n\nRunning deep analysis on all professor timetable files in the folder...\n"<<endl;
@@ -700,6 +683,40 @@ int main() {
 
 while(true){
 
+
+    cout<<"\n\n-----PROFESSOR SELECTION MENU (1)-----\n-----CREATE A NEW PROFESSOR (2)-----\n"<<endl;
+
+    int menu_choice;
+    cin>>menu_choice;
+
+    if(menu_choice == 2){
+        string prof_name;
+        cout<<"Enter Professor Name (without spaces): ";
+        cin>>prof_name;
+
+        ProfessorTable(professors_folder_path + "/" + prof_name + ".bin", true);
+        cout<<"Professor "<< prof_name <<" created successfully!"<<endl;
+
+       
+        bool professorFound = false;
+
+for (const string& prof : ProfessorTable::professors_timeTable_name) {
+    if (prof == prof_name + ".bin") {
+        professorFound = true;
+        break;
+    }
+}
+
+if (!professorFound) {
+    ProfessorTable::professors_timeTable_name.push_back(prof_name + ".bin");
+}
+
+
+  
+    continue;
+    }
+
+    cout<<"\nList of Professors Available: \n"<<endl;
     int n= 1;
     for(const string name : ProfessorTable::professors_timeTable_name){
         cout<<n<<". "<<name<< endl;
@@ -711,10 +728,10 @@ while(true){
     int id;
     cin>>id;
 
-    ProfessorTable professor(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1], false);
-    cout<<"Professor Selected: "<< professor.professorName <<endl;
+    ProfessorTable* professor = new ProfessorTable(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1], false);
+    cout<<"Professor Selected: "<< professor->professorName <<endl;
 
-cout<<"\n\n------------------MENU------------------\n1. Insert Entry\n2. Delete Entry\n3. Hard Diagnostics\n4. Skip\n---------------------------------------\n";
+cout<<"\n\n------------------MENU------------------\n1. Insert Entry\n2. Delete Entry\n3. Hard Diagnostics\n4. Skip (exit the professor)\n---------------------------------------\n";
 int choice;
 cin>>choice;
 
@@ -762,7 +779,7 @@ case 1 : {
     cout<<endl;
 
     
-    professor.insert(i);
+    professor->insert(i);
 
     break;
 }
@@ -777,7 +794,7 @@ case 2 : {
     cin>>d.start_time;
     cout<<endl;
 
-    professor.deleteEntry(d);
+    professor->deleteEntry(d);
 
     break;
 }
@@ -790,8 +807,12 @@ case 3:{
 }
 case 4:{
 cout<<"skipping ... "<<endl;
-  
+  delete professor;
   break;
+}
+
+default : {
+    cout<<"Invalid choice!!!";
 }
 
 }
