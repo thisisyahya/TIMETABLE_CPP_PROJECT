@@ -1,21 +1,28 @@
-#include <iostream>
+#include <iostream>  
 #include <fstream>
 #include <string>
 #include <vector>
+#include<map>        
 #include<stdexcept>
-#include<map>
+#include<algorithm>
 #include<filesystem>
 
 
 using namespace std;
 namespace fs = filesystem;
- 
+
+
 
 const string professors_folder_path = "professors";
 const string students_folder_path = "students";
 
-struct Mapping {
-    int mapDetails[4];
+struct Slot {
+   
+   int subjectIndex;
+    int roomIndex; 
+
+    int startTime;
+   int endTime;
     vector<string> groupCodes;
 };
 
@@ -23,7 +30,8 @@ struct Professor_Timetable {
     vector<string> subjects;
     vector<string> sessions;
     vector<string> rooms;
-    vector<Mapping> days[7];
+    vector<Slot> days[7];
+  
 };
 
 
@@ -70,83 +78,6 @@ class Timetable{   //base abstract class
 };
 
 
-class StudentTable : public Timetable{
-    
-    private:
-   
-
-   public:
-//    Student_Timetable& s = getStudentTimetable();
-   string className;
-   Student_Timetable s;
-
-   void  printTimetable() override;
-
-};
-
-    map<string, StudentTable> studentTables;
-        
-
-void StudentTable::printTimetable() {
-    // Access the student timetable
-    const auto& s = this->s;
-
-    // Print general info
-    std::cout << "Professors:\n";
-    for (const auto& prof : s.profs) {
-        std::cout << "  " << prof << "\n";
-    }
-
-    std::cout << "\nSubjects:\n";
-    for (const auto& subj : s.subjects) {
-        std::cout << "  " << subj << "\n";
-    }
-
-    std::cout << "\nRooms:\n";
-    for (const auto& room : s.rooms) {
-        std::cout << "  " << room << "\n";
-    }
-
-    std::cout << "\n--- Daily Mapping ---\n";
-
-    // Array of day names
-    const std::string daysOfWeek[7] = {
-        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
-    };
-
-    for (int day = 0; day < 7; ++day) {
-        std::cout << daysOfWeek[day] << ":\n";
-
-        if (s.days[day].empty()) {
-            std::cout << "  no entry\n";
-        } else {
-            int entryNumber = 1;
-            for (const auto& entry : s.days[day]) {
-                std::cout << "  Entry " << entryNumber << " : ";
-
-                // Print mapDetails array
-                for (int i = 0; i < 5; ++i) {
-                    std::cout << entry.mapDetails[i];
-                    if (i != 4) std::cout << ", ";
-                }
-
-                // Print group vector
-                std::cout << " , {";
-                for (size_t j = 0; j < entry.group.size(); ++j) {
-                    std::cout << entry.group[j];
-                    if (j != entry.group.size() - 1) std::cout << ", ";
-                }
-                std::cout << "}\n";
-
-                ++entryNumber;
-            }
-        }
-        std::cout << "\n";
-    }
-}
-
-
-
 class ProfessorTable : public Timetable
 {
 private:
@@ -161,11 +92,13 @@ static vector<string> professors_timeTable_name;
    // void printTimetable(Timetable& t) override;
      void printTimetable() override;
 
+     void printLowLevelTimetable();
+
      void deleteEntry(Delete entry);
 
-     void read(const string& fileName);
+     void load_binary_file_into_memory(const string& fileName);
 
-     void write(const string filename);
+     void write_timetable_into_binary_file(const string filename);
    // void deseriallize(const string& fileName);
 
     bool handle_conflict(int day, pair<int, int> dur);
@@ -183,7 +116,7 @@ static vector<string> professors_timeTable_name;
 
      void insert(Insert entry);
 
-     void deep_clean_and_realign();
+    //  void deep_clean_and_realign();   --> removedn now
 };
 
 
@@ -201,18 +134,81 @@ ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCre
 
         else if(firstCreation){
 
-            this->write(professorFileLocation);   //creating professor timetbale file wiht proper binary configuraitons ( empty file)
+            this->write_timetable_into_binary_file(professorFileLocation);   //creating professor timetbale file wiht proper binary configuraitons ( empty file)
 
         }
       
              
 }
 
-void ProfessorTable:: printTimetable(){
-     // --- PRINT TO TERMINAL ---
+
+void ProfessorTable::printTimetable() {
+    cout << "\n===== PROFESSOR TIMETABLE =====\n";
+
+    const string daysOfWeek[7] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+
+    for (int day = 0; day < 7; ++day) {
+        cout << "\n" << daysOfWeek[day] << ":\n";
+
+        if (t.days[day].empty()) {
+            cout << "  No entries\n";
+            continue;
+        }
+
+        // Group slots by subject
+        map<int, vector<Slot>> subjectSlots;
+        for (const auto& slot : t.days[day]) {
+            subjectSlots[slot.subjectIndex].push_back(slot);
+        }
+
+        for (const auto& subjPair : subjectSlots) {
+            int subjIndex = subjPair.first;
+            string subjectName = (subjIndex >= 0 && subjIndex < t.subjects.size()) ? t.subjects[subjIndex] : "Unknown Subject";
+            cout << "\nSubject: " << subjectName << "\n";
+
+            // For each slot of this subject
+            for (const auto& slot : subjPair.second) {
+                // Room
+                string roomName = (slot.roomIndex >= 0 && slot.roomIndex < t.rooms.size()) ? t.rooms[slot.roomIndex] : "Unknown Room";
+                cout << "  Room: " << roomName << "\n";
+
+                // Time in HH:MM format
+                int startHour = slot.startTime / 100;
+                int startMin  = slot.startTime % 100;
+                int endHour   = slot.endTime / 100;
+                int endMin    = slot.endTime % 100;
+                printf("  Time: %02d:%02d - %02d:%02d\n", startHour, startMin, endHour, endMin);
+
+                // Sessions & Groups
+                cout << "  Sessions & Groups:\n";
+                for (const auto& code : slot.groupCodes) {
+                    string sessionName = "Unknown";
+                    string groupStr;
+
+                    // Extract session index
+                    if (!code.empty() && isdigit(code[0])) {
+                        int sessionIdx = code[0] - '0'; // assuming single-digit index
+                        if (sessionIdx >= 0 && sessionIdx < t.sessions.size()) sessionName = t.sessions[sessionIdx];
+                    }
+
+                    // Group
+                    if (code.find('f') != string::npos) groupStr = "Full Class";
+                    else groupStr = "Group " + string(1, code.back());
+
+                    cout << "       " << sessionName << " (" << groupStr << ")\n";
+                }
+            }
+        }
+    }
+
+    cout << "\n===== END OF TIMETABLE =====\n";
+}
+
+void ProfessorTable::printLowLevelTimetable() {
+    // --- PRINT TO TERMINAL ---
     cout << "===== TIMETABLE =====\n\n";
 
-   auto& readT = this->t;
+    auto& readT = this->t;
     cout << "Subjects:\n";
     for (auto &s : readT.subjects) cout << "  - " << s << "\n";
 
@@ -230,14 +226,14 @@ void ProfessorTable:: printTimetable(){
             continue;
         }
         for (size_t i = 0; i < readT.days[day].size(); i++) {
-            Mapping &m = readT.days[day][i];
+            Slot &m = readT.days[day][i];
             cout << "  Entry " << i + 1 << ":\n";
-            cout << "    Map Details: ";
-            for (int k = 0; k < 4; k++) {
-                cout << m.mapDetails[k];
-                if (k != 3) cout << ", ";
-            }
-            cout << "\n";
+
+            cout << "    Subject Index: " << m.subjectIndex << "\n";
+            cout << "    Room Index: " << m.roomIndex << "\n";
+            cout << "    Start Time: " << m.startTime << "\n";
+            cout << "    End Time: " << m.endTime << "\n";
+
             cout << "    Group Codes: ";
             for (size_t j = 0; j < m.groupCodes.size(); j++) {
                 cout << m.groupCodes[j];
@@ -253,7 +249,7 @@ void ProfessorTable:: printTimetable(){
 
 
 
-void ProfessorTable :: write(const string profFileLocation){
+void ProfessorTable :: write_timetable_into_binary_file(const string profFileLocation){
         // --- WRITE TO BINARY FILE ---
 ofstream out;
         if(profFileLocation == ""){
@@ -282,33 +278,38 @@ ofstream out;
         }
     }
 
-    // Write days[7] and their Mappings
-    for (int d = 0; d < 7; d++) {
-        size_t numMappings = t.days[d].size();
-        out.write(reinterpret_cast<const char*>(&numMappings), sizeof(numMappings));
-        for (size_t i = 0; i < t.days[d].size(); i++) {
-            Mapping &m = t.days[d][i];
+    
+    // Write Slot members in correct order
+for (int d = 0; d < 7; d++) {
+    size_t numSlots = t.days[d].size();
+    out.write(reinterpret_cast<const char*>(&numSlots), sizeof(numSlots));
+    for (size_t i = 0; i < t.days[d].size(); i++) {
+        Slot &m = t.days[d][i];
 
-            // Write mapDetails array
-            out.write(reinterpret_cast<const char*>(m.mapDetails), 4 * sizeof(int));
+         // Correct order: subject → room → start → end
+            out.write(reinterpret_cast<const char*>(&m.subjectIndex), sizeof(m.subjectIndex));
+            out.write(reinterpret_cast<const char*>(&m.roomIndex), sizeof(m.roomIndex));
+            out.write(reinterpret_cast<const char*>(&m.startTime), sizeof(m.startTime));
+            out.write(reinterpret_cast<const char*>(&m.endTime), sizeof(m.endTime));
 
-            // Write groupCodes vector
-            size_t numCodes = m.groupCodes.size();
-            out.write(reinterpret_cast<const char*>(&numCodes), sizeof(numCodes));
-            for (size_t j = 0; j < m.groupCodes.size(); j++) {
-                size_t len = m.groupCodes[j].size();
-                out.write(reinterpret_cast<const char*>(&len), sizeof(len));
-                out.write(m.groupCodes[j].data(), len);
-            }
+        // Write groupCodes vector
+        size_t numCodes = m.groupCodes.size();
+        out.write(reinterpret_cast<const char*>(&numCodes), sizeof(numCodes));
+        for (size_t j = 0; j < m.groupCodes.size(); j++) {
+            size_t len = m.groupCodes[j].size();
+            out.write(reinterpret_cast<const char*>(&len), sizeof(len));
+            out.write(m.groupCodes[j].data(), len);
         }
     }
+}
+
     out.close();
 
    // PrintTimetable(t);
 }
 
 
-void ProfessorTable :: read(const string& profFileLocation){
+void ProfessorTable :: load_binary_file_into_memory(const string& profFileLocation){
     // --- READ FROM BINARY FILE ---
 
     auto& readT = this->t;
@@ -334,29 +335,33 @@ void ProfessorTable :: read(const string& profFileLocation){
         }
     }
 
-    // Read days[7] and their Mappings
-    for (int d = 0; d < 7; d++) {
-        size_t numMappings;
-        in.read(reinterpret_cast<char*>(&numMappings), sizeof(numMappings));
-        readT.days[d].resize(numMappings);
-        for (size_t i = 0; i < numMappings; i++) {
-            Mapping &m = readT.days[d][i];
+    // Read days[7] and their Slots
+for (int d = 0; d < 7; d++) {
+    size_t numSlots;
+    in.read(reinterpret_cast<char*>(&numSlots), sizeof(numSlots));
+    readT.days[d].resize(numSlots);
+    for (size_t i = 0; i < numSlots; i++) {
+        Slot &m = readT.days[d][i];
 
-            // mapDetails
-            in.read(reinterpret_cast<char*>(m.mapDetails), sizeof(m.mapDetails));
+        // Read individual Slot members
+        in.read(reinterpret_cast<char*>(&m.subjectIndex), sizeof(m.subjectIndex));
+        in.read(reinterpret_cast<char*>(&m.roomIndex), sizeof(m.roomIndex));
+        in.read(reinterpret_cast<char*>(&m.startTime), sizeof(m.startTime));
+        in.read(reinterpret_cast<char*>(&m.endTime), sizeof(m.endTime));
 
-            // groupCodes
-            size_t numCodes;
-            in.read(reinterpret_cast<char*>(&numCodes), sizeof(numCodes));
-            m.groupCodes.resize(numCodes);
-            for (size_t j = 0; j < numCodes; j++) {
-                size_t len;
-                in.read(reinterpret_cast<char*>(&len), sizeof(len));
-                m.groupCodes[j].resize(len);
-                in.read(m.groupCodes[j].data(), len);
-            }
+        // Read groupCodes vector
+        size_t numCodes;
+        in.read(reinterpret_cast<char*>(&numCodes), sizeof(numCodes));
+        m.groupCodes.resize(numCodes);
+        for (size_t j = 0; j < numCodes; j++) {
+            size_t len;
+            in.read(reinterpret_cast<char*>(&len), sizeof(len));
+            m.groupCodes[j].resize(len);
+            in.read(m.groupCodes[j].data(), len);
         }
     }
+}
+
 
     t = readT;
 
@@ -382,16 +387,16 @@ bool ProfessorTable::handle_conflict(int day, pair<int, int> dur)
 
     for (auto mapping : t.days[day])
     {
-        cout << mapping.mapDetails[0] << " " << mapping.mapDetails[1] << " " << mapping.mapDetails[2] << " " << mapping.mapDetails[3] << endl;
+        cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
     }
 
     for (auto subjectMeta : t.days[day])
     {
         if (
-            (dur.first <= subjectMeta.mapDetails[2] && dur.second >= subjectMeta.mapDetails[2] && dur.second <= subjectMeta.mapDetails[3]) ||
-            (dur.first <= subjectMeta.mapDetails[2] && dur.second >= subjectMeta.mapDetails[3]) ||
-            (dur.first >= subjectMeta.mapDetails[2] && dur.first <= subjectMeta.mapDetails[3] && dur.second >= subjectMeta.mapDetails[3]) ||
-            (dur.first >= subjectMeta.mapDetails[2] && dur.second <= subjectMeta.mapDetails[3])
+            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.startTime && dur.second <= subjectMeta.endTime) ||
+            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.endTime) ||
+            (dur.first >= subjectMeta.startTime && dur.first <= subjectMeta.endTime && dur.second >= subjectMeta.endTime) ||
+            (dur.first >= subjectMeta.startTime && dur.second <= subjectMeta.endTime)
         )
         {
             slotFound = false;
@@ -505,7 +510,7 @@ void ProfessorTable::insert(Insert entry){
 
         t.days[entry.day].push_back({indexOfSubject , indexOfRoom, entry.dur.first, entry.dur.second, {sessionCodes}});
 
-        this->write(professors_folder_path + "/" + this->professorName);
+        this->write_timetable_into_binary_file(professors_folder_path + "/" + this->professorName);
         this->printTimetable();
         return;
     }
@@ -522,9 +527,9 @@ void ProfessorTable::deleteEntry(Delete entry) {
 
     int n = 0;
     for (const auto& mapping : t.days[entry.day]) {
-        if (mapping.mapDetails[2] == entry.start_time) {
+        if (mapping.startTime == entry.start_time) {
             t.days[entry.day].erase(t.days[entry.day].begin() + n);
-            this->write(professors_folder_path + "/" + this->professorName);
+            this->write_timetable_into_binary_file(professors_folder_path + "/" + this->professorName);
             this->printTimetable();
             return;
         }
@@ -569,19 +574,11 @@ int main() {
     }
 
 
-
-
-        cout<<"\n\nRunning deep analysis on all professor timetable files in the folder...\n"<<endl;
     for (const auto& entry : fs::directory_iterator(professors_folder_path)) {
 
-        cout<<"\n---------------------------------------------\n--------------------------------------------------\n";
         if (entry.is_regular_file()) {
-            //professors.emplace(entry.path().stem().string(), ProfessorTable(entry.path().filename().string()));
-            cout<<"object created for :"<< entry.path().stem().string()<<" successfully!"<<endl;
-            ProfessorTable* table = new ProfessorTable(professors_folder_path + "/" + entry.path().filename().string(), false);
+    
             ProfessorTable::professors_timeTable_name.push_back(entry.path().filename().string()); //track professors record in class's static variable
-
-           delete table;
     
 
         }
@@ -637,9 +634,10 @@ if (!professorFound) {
     cin>>id;
 
     ProfessorTable* professor = new ProfessorTable(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1], false);
+    professor->load_binary_file_into_memory(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1]);
     cout<<"Professor Selected: "<< professor->professorName <<endl;
 
-cout<<"\n\n------------------MENU------------------\n1. Insert Entry\n2. Delete Entry\n3. Hard Diagnostics\n4. Skip (exit the professor)\n---------------------------------------\n";
+cout<<"\n\n------------------MENU------------------\n1. Insert Entry\n2. Delete Entry\n3. Print Timetable \n4. Skip (exit the professor)\n---------------------------------------\n";
 int choice;
 cin>>choice;
 
@@ -709,7 +707,7 @@ case 2 : {
 
 case 3:{
 
-    //continued
+    professor->printTimetable();
 
     break;
 }
@@ -719,6 +717,10 @@ cout<<"skipping ... "<<endl;
   break;
 }
 
+case 0:{
+    professor->printLowLevelTimetable();   //low level debugging
+    break;
+}
 default : {
     cout<<"Invalid choice!!!";
 }
