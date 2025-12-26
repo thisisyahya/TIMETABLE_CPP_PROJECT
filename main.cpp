@@ -16,55 +16,48 @@ namespace fs = filesystem;
 const string professors_folder_path = "professors";
 const string students_folder_path = "students";
 
-struct Slot {
-   
-   int subjectIndex;
-    int roomIndex; 
 
-    int startTime;
+struct Slot {
+   int subjectIndex;
+   int roomIndex; 
+   int startTime;
    int endTime;
     vector<string> groupCodes;
 };
+
 
 struct Teacher_Timetable {
     vector<string> subjects;
     vector<string> sessions;
     vector<string> rooms;
     vector<Slot> days[7];
-  
 };
 
 
 
-struct Insert{
+// Structure representing a timetable insertion
+struct Insert {
+    string subject; 
 
-    string subject;
-    vector<pair<string, string>> session;  
+    // Vector of pairs representing sessions
+    // Each pair: <session_index, group_code>
+    // Example: {"0", "f"} means full class of session at 0th index
+    // Example: {"1", "b"} means full class of session at 1st index
+    vector<pair<string, string>> session;
+
     string room;
-    int day;
+    int day;       
+
+    // dur(duration) = start time, Second = end time
     pair<int, int> dur;
-
 };
 
-struct  Delete{
-  int day;
-  int start_time;
+// Structure representing a timetable deletion
+struct Delete {
+    int day;         // Day of the session to delete
+    int start_time;  // Start time of the session to delete
 };
 
-
-
-
-struct Student_timetable_mapping{
-    int mapDetails[5];
-    vector<char> group;
-};
-
-struct Student_Timetable{
-    vector<string> profs;
-    vector<string> subjects;
-    vector<string> rooms;
-    vector<Student_timetable_mapping> days[7];
-};
 
 
 
@@ -80,31 +73,37 @@ class Timetable{   //base abstract class
 class TeacherTable : public Timetable
 {
 private:
+    // Stores the complete timetable data for a professor
     Teacher_Timetable t;
 
 public:
-static vector<string> professors_timeTable_name;
- string professorName;
+    // Static list to keep track of all professor timetable files
+    // Shared across all instances of TeacherTable
+    static vector<string> professors_timeTable_name;
+
+    // Name of the professor associated with this timetable
+    string professorName;
+
 
     TeacherTable(const string professorFileName, bool firstCreation);
 
-   // void printTimetable(Timetable& t) override;
-     void printTimetable() override;
+    void load_binary_file_into_memory(const string& fileName);
 
-     void printLowLevelTimetable();
+    void write_timetable_into_binary_file(const string fileName);
 
-     void deleteEntry(Delete entry);
+    void printTimetable() override;       // overriding the base class method
 
-     void load_binary_file_into_memory(const string& fileName);
+    void printLowLevelTimetable();       // for developer only debugging
 
-     void write_timetable_into_binary_file(const string filename);
-   // void deseriallize(const string& fileName);
+    void deleteEntry(Delete entry);      // Delete entry = {day, start_time}
 
-    bool handle_conflict(int day, pair<int, int> dur);
 
-     void insert(Insert entry);
+    bool handle_conflict(int day, pair<int, int> dur);    //handle conflict must runs before any insertion operation
 
+    void insert(Insert entry);          // Insert entry = {subject, session, room, day, start_time, end_time}
 };
+
+
 
 
 TeacherTable::TeacherTable(const string professorFileLocation, bool firstCreation)
