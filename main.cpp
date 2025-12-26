@@ -26,7 +26,7 @@ struct Slot {
     vector<string> groupCodes;
 };
 
-struct Professor_Timetable {
+struct Teacher_Timetable {
     vector<string> subjects;
     vector<string> sessions;
     vector<string> rooms;
@@ -71,23 +71,22 @@ struct Student_Timetable{
 
 class Timetable{   //base abstract class
 
-
     public : 
 
     virtual void printTimetable() = 0;
 };
 
 
-class ProfessorTable : public Timetable
+class TeacherTable : public Timetable
 {
 private:
-    Professor_Timetable t;
+    Teacher_Timetable t;
 
 public:
 static vector<string> professors_timeTable_name;
  string professorName;
 
-    ProfessorTable(const string professorFileName, bool firstCreation);
+    TeacherTable(const string professorFileName, bool firstCreation);
 
    // void printTimetable(Timetable& t) override;
      void printTimetable() override;
@@ -103,24 +102,12 @@ static vector<string> professors_timeTable_name;
 
     bool handle_conflict(int day, pair<int, int> dur);
 
-    static void create_professor(string name){
-        
-       ofstream out("professors/"+name+".bin");
-       cout<<"File created successfully";
-
-      ProfessorTable* newProf = new ProfessorTable(name+".bin", false);
-      professors_timeTable_name.push_back(name+".bin"); //track professors record in class's static variable
-      delete newProf;
-
-    }
-
      void insert(Insert entry);
 
-    //  void deep_clean_and_realign();   --> removedn now
 };
 
 
-ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCreation)
+TeacherTable::TeacherTable(const string professorFileLocation, bool firstCreation)
 {
    
         this->professorName = professorFileLocation.substr(professorFileLocation.find_last_of("/\\") + 1);
@@ -142,7 +129,7 @@ ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCre
 }
 
 
-void ProfessorTable::printTimetable() {
+void TeacherTable::printTimetable() {
     cout << "\n===== PROFESSOR TIMETABLE =====\n";
 
     const string daysOfWeek[7] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
@@ -204,7 +191,7 @@ void ProfessorTable::printTimetable() {
     cout << "\n===== END OF TIMETABLE =====\n";
 }
 
-void ProfessorTable::printLowLevelTimetable() {
+void TeacherTable::printLowLevelTimetable() {
     // --- PRINT TO TERMINAL ---
     cout << "===== TIMETABLE =====\n\n";
 
@@ -249,7 +236,7 @@ void ProfessorTable::printLowLevelTimetable() {
 
 
 
-void ProfessorTable :: write_timetable_into_binary_file(const string profFileLocation){
+void TeacherTable :: write_timetable_into_binary_file(const string profFileLocation){
         // --- WRITE TO BINARY FILE ---
 ofstream out;
         if(profFileLocation == ""){
@@ -309,7 +296,7 @@ for (int d = 0; d < 7; d++) {
 }
 
 
-void ProfessorTable :: load_binary_file_into_memory(const string& profFileLocation){
+void TeacherTable :: load_binary_file_into_memory(const string& profFileLocation){
     // --- READ FROM BINARY FILE ---
 
     auto& readT = this->t;
@@ -374,7 +361,7 @@ for (int d = 0; d < 7; d++) {
 
 
 
-bool ProfessorTable::handle_conflict(int day, pair<int, int> dur)
+bool TeacherTable::handle_conflict(int day, pair<int, int> dur)
 {
     cout << "\n\n-------------------entering conflict resolution mode-----------\n\n";
     bool slotFound = false;
@@ -412,7 +399,7 @@ bool ProfessorTable::handle_conflict(int day, pair<int, int> dur)
 }
 
 
-void ProfessorTable::insert(Insert entry){
+void TeacherTable::insert(Insert entry){
 
      try
     {
@@ -522,7 +509,7 @@ void ProfessorTable::insert(Insert entry){
 }
 
 
-void ProfessorTable::deleteEntry(Delete entry) {
+void TeacherTable::deleteEntry(Delete entry) {
     if (entry.day < 0 || entry.day >= 7) return;
 
     int n = 0;
@@ -537,36 +524,10 @@ void ProfessorTable::deleteEntry(Delete entry) {
     }
 }
 
-vector<string> ProfessorTable :: professors_timeTable_name;  // static variable
+vector<string> TeacherTable :: professors_timeTable_name;  // static variable
 
 
 int main() {
-
-   
-// Professor_Timetable mam_tehmeena = {
-//     {"Linear Algebra"},
-//     {"24-mct-a"},
-//     {"lh#1"},
-//     {
-//         {},
-//         {},
-//         {},
-//         {{{0,0,510,660}, {"00f"}}},
-//         {  },
-//         {}, {}
-//     }
-// };
-
-
-// ProfessorTable p("professors/mam_tehmeena.bin", true);
-// p.write("professors/mam_tehmeena.bin", mam_tehmeena);
-
-//   Write(sir_asif, "professors/sir_asif.bin");
-   //Read(r, "professors/sir_asif.bin");
-
-//    insert(r, {"python programming", "24-mct-A", "lh#2",0,{910, 1000}, "00c"});
-//    deleteEntry(r, {0, 700}, "professors/sir_asif.bin");
-
 
 
  if (!fs::exists(professors_folder_path) || !fs::is_directory(professors_folder_path)) {
@@ -578,7 +539,7 @@ int main() {
 
         if (entry.is_regular_file()) {
     
-            ProfessorTable::professors_timeTable_name.push_back(entry.path().filename().string()); //track professors record in class's static variable
+            TeacherTable::professors_timeTable_name.push_back(entry.path().filename().string()); //track professors record in class's static variable
     
 
         }
@@ -596,16 +557,16 @@ while(true){
 
     if(menu_choice == 2){
         string prof_name;
-        cout<<"Enter Professor Name (without spaces): ";
+        cout<<"Enter Teacher Name (without spaces): ";
         cin>>prof_name;
 
-        ProfessorTable(professors_folder_path + "/" + prof_name + ".bin", true);
-        cout<<"Professor "<< prof_name <<" created successfully!"<<endl;
+        TeacherTable(professors_folder_path + "/" + prof_name + ".bin", true);
+        cout<<"Teacher "<< prof_name <<" created successfully!"<<endl;
 
        
         bool professorFound = false;
 
-for (const string& prof : ProfessorTable::professors_timeTable_name) {
+for (const string& prof : TeacherTable::professors_timeTable_name) {
     if (prof == prof_name + ".bin") {
         professorFound = true;
         break;
@@ -613,7 +574,7 @@ for (const string& prof : ProfessorTable::professors_timeTable_name) {
 }
 
 if (!professorFound) {
-    ProfessorTable::professors_timeTable_name.push_back(prof_name + ".bin");
+    TeacherTable::professors_timeTable_name.push_back(prof_name + ".bin");
 }
 
 
@@ -621,21 +582,21 @@ if (!professorFound) {
     continue;
     }
 
-    cout<<"\nList of Professors Available: \n"<<endl;
+    cout<<"\nList of Teachers Available: \n"<<endl;
     int n= 1;
-    for(const string name : ProfessorTable::professors_timeTable_name){
+    for(const string name : TeacherTable::professors_timeTable_name){
         cout<<n<<". "<<name<< endl;
         n++;
     }
     
-        cout<<"\nSelect Professor Id : "<<endl;
+        cout<<"\nSelect Teacher Id : "<<endl;
    
     int id;
     cin>>id;
 
-    ProfessorTable* professor = new ProfessorTable(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1], false);
-    professor->load_binary_file_into_memory(professors_folder_path + "/" + ProfessorTable::professors_timeTable_name[id-1]);
-    cout<<"Professor Selected: "<< professor->professorName <<endl;
+    TeacherTable* professor = new TeacherTable(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id-1], false);
+    professor->load_binary_file_into_memory(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id-1]);
+    cout<<"Teacher Selected: "<< professor->professorName <<endl;
 
 cout<<"\n\n------------------MENU------------------\n1. Insert Entry\n2. Delete Entry\n3. Print Timetable \n4. Skip (exit the professor)\n---------------------------------------\n";
 int choice;
