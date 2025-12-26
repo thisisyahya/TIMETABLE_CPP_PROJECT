@@ -63,19 +63,8 @@ struct Student_Timetable{
 
 class Timetable{   //base abstract class
 
-    private: 
-    Student_Timetable s;    //not inherited
-    Professor_Timetable p;   // not inherited
 
     public : 
-
-    Student_Timetable& getStudentTimetable(){  //safe parsing to children classes
-        return this->s;
-    }
-
-    Professor_Timetable& getProfessorTimetable(){
-        return this->p;
-    }
 
     virtual void printTimetable() = 0;
 };
@@ -161,13 +150,13 @@ void StudentTable::printTimetable() {
 class ProfessorTable : public Timetable
 {
 private:
-    Professor_Timetable& t = getProfessorTimetable();   //internal linking (encapsulation)
+    Professor_Timetable t;
 
 public:
 static vector<string> professors_timeTable_name;
  string professorName;
 
-    ProfessorTable(const string professorFileName, bool firstCreation, Professor_Timetable t = {});
+    ProfessorTable(const string professorFileName, bool firstCreation);
 
    // void printTimetable(Timetable& t) override;
      void printTimetable() override;
@@ -176,7 +165,7 @@ static vector<string> professors_timeTable_name;
 
      void read(const string& fileName);
 
-     void write(const string filename,  Professor_Timetable& t);
+     void write(const string filename);
    // void deseriallize(const string& fileName);
 
     bool handle_conflict(int day, pair<int, int> dur);
@@ -198,104 +187,23 @@ static vector<string> professors_timeTable_name;
 };
 
 
-ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCreation, Professor_Timetable newT)
+ProfessorTable::ProfessorTable(const string professorFileLocation, bool firstCreation)
 {
-    //cout<<"file in construtor is " << professorFileLocation<<endl;
+   
         this->professorName = professorFileLocation.substr(professorFileLocation.find_last_of("/\\") + 1);
 
-        //cout<<"professor name in constructor is : "<< this->professorName<<endl;
 
-        if(!firstCreation){
-            
-            this->read(professorFileLocation);
-             vector<char> groups;
+        if(!firstCreation){  
+         
+            cout<<"timetable exists already for : "<< this->professorName <<endl;
                  
-             
-            for(const string& session : t.sessions){
-              //  cout<<"\n\n---------\n-----------\n-------------\n-----------\n"<<session <<"\n"<<studentTables.size()<<"\n------------\n---------------\n"<<endl;
-                // auto& s = getStudentTimetable(); // get student timetable from abstract base class
-               
-
-                if(studentTables.find(session) == studentTables.end()){
-
-                    //cout<<"making new object in map "<<session<<endl;
-
-                studentTables.emplace(session, StudentTable());
-                }
-                // else{
-                //     cout<<session<<" already exist"<<endl;
-                // }
-                
-
-                studentTables[session].s.profs.push_back(this->professorName);
-
-
-                ofstream out(students_folder_path+"/"+session+".bin");
-
-                if(!out.is_open()){
-                    throw runtime_error("file opening error for session");
-                }
-               
-               out.close();
-            
-                 int n = 0;
-                for(const auto& mapping : t.days){
-                    
-                      int itr = 0;
-                    for(const auto& slot : mapping){
-                      
-                        int sessionIndex;
-                        
-
-                        for(string groupCode : slot.groupCodes){
-
-                          //  cout<<"Session is : "<< groupCode<<endl;
-
-                        sessionIndex = int(groupCode[0] - '0');
-
-                        //cout<<"Session index is : "<< groupCode[0] - '0' <<" | "<<  groupCode[0]<<endl;
-
-                        if(t.sessions[sessionIndex] == session){ 
-
-
-                            bool subjectFound = false;
-                            groups.push_back(groupCode[2]);
-
-                           // cout<<"group is : "<< groupCode[2]<<endl;
-
-                          for(string subject :studentTables[session].s.subjects){
-                            if(subject != t.subjects[slot.mapDetails[0]]){
-                                subjectFound = false;
-                            }
-                            else if(subject == t.subjects[slot.mapDetails[0]]){
-                                subjectFound = true;
-                            }
-                          }
-
-                          if(!subjectFound) studentTables[session].s.subjects.push_back(t.subjects[slot.mapDetails[0]]);
-
-                          subjectFound = false;
-                        }
-                    }
-
-                         if(itr == slot.groupCodes.size()-1){
-                                 studentTables[session].s.days[n].push_back({{static_cast<int>((studentTables[session].s.profs.size()-1)),slot.mapDetails[0], slot.mapDetails[1], slot.mapDetails[2], slot.mapDetails[3]} ,{groups}});
-                         groups = {}; //empty gorup vector
-                            }
-                     itr++;
-                }
-                 n++; 
-            }
-
-
-    }
-
-    cout<<"\n\n-----PRINTING ALL STUDENT TIMETABLES LINKED TO THIS PROFESSOR-----\n\n"<<endl;
-    for(auto [session, object] : studentTables){
-           // object.printTimetable();
         }
-}
-        else if(firstCreation) this->write(professorFileLocation, newT);
+
+        else if(firstCreation){
+
+            this->write(professorFileLocation);   //creating professor timetbale file wiht proper binary configuraitons ( empty file)
+
+        }
       
              
 }
@@ -345,7 +253,7 @@ void ProfessorTable:: printTimetable(){
 
 
 
-void ProfessorTable :: write(const string profFileLocation,  Professor_Timetable& t){
+void ProfessorTable :: write(const string profFileLocation){
         // --- WRITE TO BINARY FILE ---
 ofstream out;
         if(profFileLocation == ""){
@@ -597,7 +505,7 @@ void ProfessorTable::insert(Insert entry){
 
         t.days[entry.day].push_back({indexOfSubject , indexOfRoom, entry.dur.first, entry.dur.second, {sessionCodes}});
 
-        this->write(professors_folder_path + "/" + this->professorName, t);
+        this->write(professors_folder_path + "/" + this->professorName);
         this->printTimetable();
         return;
     }
@@ -616,7 +524,7 @@ void ProfessorTable::deleteEntry(Delete entry) {
     for (const auto& mapping : t.days[entry.day]) {
         if (mapping.mapDetails[2] == entry.start_time) {
             t.days[entry.day].erase(t.days[entry.day].begin() + n);
-            this->write(professors_folder_path + "/" + this->professorName, t);
+            this->write(professors_folder_path + "/" + this->professorName);
             this->printTimetable();
             return;
         }
