@@ -6,49 +6,54 @@
 #include<stdexcept>
 #include<algorithm>
 #include<filesystem>
-
+#include <queue>
 
 using namespace std;
 namespace fs = filesystem;
-
 
 
 const string professors_folder_path = "professors";
 const string students_folder_path = "students";
 
 
-struct Slot {
+struct Teacher_Slot {
    int subjectIndex;
    int roomIndex; 
    int startTime;
    int endTime;
-    vector<string> groupCodes;
+vector<string> groupCodes;
 };
-
 
 struct Teacher_Timetable {
     vector<string> subjects;
     vector<string> sessions;
     vector<string> rooms;
-    vector<Slot> days[7];
+    vector<Teacher_Slot> days[7];
 };
 
+struct Student_Slot {
+   int subjectIndex;
+   int professorIndex;
+   int roomIndex; 
+   int startTime;
+   int endTime;
+   char group;
+};
 
+struct Student_Timetable
+{
+    vector<string> professors;
+    vector<string> rooms;
+    vector<string> subjects;
+    vector<Student_Slot> days[7];
+};
 
 // Structure representing a timetable insertion
 struct Insert {
     string subject; 
-
-    // Vector of pairs representing sessions
-    // Each pair: <session_index, group_code>
-    // Example: {"0", "f"} means full class of session at 0th index
-    // Example: {"1", "b"} means full class of session at 1st index
     vector<pair<string, string>> session;
-
     string room;
     int day;       
-
-    // dur(duration) = start time, Second = end time
     pair<int, int> dur;
 };
 
@@ -60,14 +65,188 @@ struct Delete {
 
 
 
-
-
 class Timetable{   //base abstract class
 
     public : 
-
     virtual void printTimetable() = 0;
 };
+
+
+
+class StudentTable{
+
+
+    Student_Timetable s;
+
+
+    bool profFound = false;
+    int indexOfProfessor = 0;
+
+    bool roomFound = false;
+    int indexOfRoom = 0;
+
+    bool subjectFound = false;
+    int indexOfSubject = 0;
+
+   void reoconstruct_multiple_students_timetables_form_this_professor(Teacher_Timetable& t, string profname){
+    
+    for(const string session : t.sessions){
+
+          ofstream st(session);
+
+          if(!st.is_open()){
+            cerr<<"error opening session file from professor!"<<endl;
+            return;
+          }
+       
+          cout<<"session file "<<session<<" created!!!\n";
+           
+    
+        //utility function --------------------------------------
+        //utility function --------------------------------------
+        //utility function --------------------------------------
+          
+    // lambda definition
+    auto find_or_insert_professor = [&]() -> int {
+    
+profFound = false;
+        for(indexOfProfessor = 0; indexOfProfessor < s.professors.size(); indexOfProfessor++) {
+            if(s.professors[indexOfProfessor] == profname) {
+                profFound = true;
+                break;
+            }
+        }
+
+        if(profFound) return indexOfProfessor;
+
+        s.professors.push_back(profname);
+        return s.professors.size() - 1;
+    };
+
+auto find_or_insert_subject=[&](string subjectname)->int{
+     subjectFound = false;
+     for(indexOfSubject = 0; indexOfSubject < s.subjects.size(); indexOfSubject++) {
+            if(s.subjects[indexOfSubject] == subjectname) {
+                subjectFound= true;
+                break;
+            }
+        }
+
+        if(subjectFound) return indexOfSubject;
+
+        s.subjects.push_back(subjectname);
+        return s.subjects.size() - 1;
+    };
+
+
+auto find_or_insert_room=[&](string roomname)->int{
+     roomFound = false;
+     for(indexOfRoom = 0; indexOfRoom < s.rooms.size(); indexOfRoom++) {
+            if(s.rooms[indexOfRoom] == roomname) {
+                roomFound= true;
+                break;
+            }
+        }
+
+        if(roomFound) return indexOfRoom;
+
+       s.rooms.push_back(roomname);   // ✅ push to rooms
+        return s.rooms.size() - 1;
+    };
+
+
+          int day = 0;
+          for(const vector<Teacher_Slot> teacherSlots : t.days){
+            
+            int slot_no=0;
+            for(Teacher_Slot slot : teacherSlots){
+    
+            for(string groupCode : slot.groupCodes){
+                if(t.sessions[groupCode[0]] == session){
+
+                   s.days[day].push_back({find_or_insert_subject(s.subjects[slot.subjectIndex]),find_or_insert_professor(), find_or_insert_room(s.rooms[slot.roomIndex]) , slot.startTime, slot.endTime, groupCode[1]});
+                }
+            }
+
+            slot_no++;
+            }
+ 
+            day++;
+          }
+
+    }            
+
+    }
+
+    void printTimetable();
+
+};
+
+void StudentTable::printTimetable() {
+    cout << "\n===== STUDENT TIMETABLE =====\n";
+
+    const string daysOfWeek[7] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+
+    for (int day = 0; day < 7; ++day) {
+        cout << "\n" << daysOfWeek[day] << ":\n";
+
+        if (s.days[day].empty()) {
+            cout << "  No entries\n";
+            continue;
+        }
+
+        // Group slots by subject
+        map<int, vector<Student_Slot>> subjectSlots;
+        for (const auto& slot : s.days[day]) {
+            subjectSlots[slot.subjectIndex].push_back(slot);
+        }
+
+        for (const auto& subjPair : subjectSlots) {
+            int subjIndex = subjPair.first;
+            string subjectName = (subjIndex >= 0 && subjIndex < s.subjects.size()) ? s.subjects[subjIndex] : "Unknown Subject";
+            cout << "\nSubject: " << subjectName << "\n";
+
+            for (const auto& slot : subjPair.second) {
+                // Professor
+                string professorName = (slot.professorIndex >= 0 && slot.professorIndex < s.professors.size()) ? s.professors[slot.professorIndex] : "Unknown Professor";
+                cout << "  Professor: " << professorName << "\n";
+
+                // Room
+                string roomName = (slot.roomIndex >= 0 && slot.roomIndex < s.rooms.size()) ? s.rooms[slot.roomIndex] : "Unknown Room";
+                cout << "  Room: " << roomName << "\n";
+
+                // Time in HH:MM format
+                int startHour = slot.startTime / 100;
+                int startMin  = slot.startTime % 100;
+                int endHour   = slot.endTime / 100;
+                int endMin    = slot.endTime % 100;
+                printf("  Time: %02d:%02d - %02d:%02d\n", startHour, startMin, endHour, endMin);
+
+                // Group
+                string groupStr;
+                if (slot.group == 'f' || slot.group == 'F') groupStr = "Full Class";
+                else groupStr = "Group " + string(1, slot.group);
+
+                cout << "  Group: " << groupStr << "\n";
+            }
+        }
+    }
+
+    cout << "\n===== END OF TIMETABLE =====\n";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class TeacherTable : public Timetable
@@ -142,12 +321,12 @@ void TeacherTable::printTimetable() {
         }
 
         // Group slots by subject
-        map<int, vector<Slot>> subjectSlots;
+        map<int, vector<Teacher_Slot>> subjectTeacher_Slots;
         for (const auto& slot : t.days[day]) {
-            subjectSlots[slot.subjectIndex].push_back(slot);
+            subjectTeacher_Slots[slot.subjectIndex].push_back(slot);
         }
 
-        for (const auto& subjPair : subjectSlots) {
+        for (const auto& subjPair : subjectTeacher_Slots) {
             int subjIndex = subjPair.first;
             string subjectName = (subjIndex >= 0 && subjIndex < t.subjects.size()) ? t.subjects[subjIndex] : "Unknown Subject";
             cout << "\nSubject: " << subjectName << "\n";
@@ -212,7 +391,7 @@ void TeacherTable::printLowLevelTimetable() {
             continue;
         }
         for (size_t i = 0; i < readT.days[day].size(); i++) {
-            Slot &m = readT.days[day][i];
+            Teacher_Slot &m = readT.days[day][i];
             cout << "  Entry " << i + 1 << ":\n";
 
             cout << "    Subject Index: " << m.subjectIndex << "\n";
@@ -265,12 +444,12 @@ ofstream out;
     }
 
     
-    // Write Slot members in correct order
+    // Write Teacher_Slot members in correct order
 for (int d = 0; d < 7; d++) {
-    size_t numSlots = t.days[d].size();
-    out.write(reinterpret_cast<const char*>(&numSlots), sizeof(numSlots));
+    size_t numTeacher_Slots = t.days[d].size();
+    out.write(reinterpret_cast<const char*>(&numTeacher_Slots), sizeof(numTeacher_Slots));
     for (size_t i = 0; i < t.days[d].size(); i++) {
-        Slot &m = t.days[d][i];
+        Teacher_Slot &m = t.days[d][i];
 
          // Correct order: subject → room → start → end
             out.write(reinterpret_cast<const char*>(&m.subjectIndex), sizeof(m.subjectIndex));
@@ -321,15 +500,15 @@ void TeacherTable :: load_binary_file_into_memory(const string& profFileLocation
         }
     }
 
-    // Read days[7] and their Slots
+    // Read days[7] and their Teacher_Slots
 for (int d = 0; d < 7; d++) {
-    size_t numSlots;
-    in.read(reinterpret_cast<char*>(&numSlots), sizeof(numSlots));
-    readT.days[d].resize(numSlots);
-    for (size_t i = 0; i < numSlots; i++) {
-        Slot &m = readT.days[d][i];
+    size_t numTeacher_Slots;
+    in.read(reinterpret_cast<char*>(&numTeacher_Slots), sizeof(numTeacher_Slots));
+    readT.days[d].resize(numTeacher_Slots);
+    for (size_t i = 0; i < numTeacher_Slots; i++) {
+        Teacher_Slot &m = readT.days[d][i];
 
-        // Read individual Slot members
+        // Read individual Teacher_Slot members
         in.read(reinterpret_cast<char*>(&m.subjectIndex), sizeof(m.subjectIndex));
         in.read(reinterpret_cast<char*>(&m.roomIndex), sizeof(m.roomIndex));
         in.read(reinterpret_cast<char*>(&m.startTime), sizeof(m.startTime));
@@ -486,7 +665,7 @@ void TeacherTable::insert(Insert entry){
 
         if (!conflictResolved)
         {
-            cout << "Slot already Reserved !!!" << endl;
+            cout << "Teacher_Slot already Reserved !!!" << endl;
             return;
         }
         else
