@@ -4,9 +4,7 @@
 #include <vector>
 #include <map>
 #include <stdexcept>
-#include <algorithm>
 #include <filesystem>
-#include <queue>
 
 using namespace std;
 namespace fs = filesystem;
@@ -71,19 +69,22 @@ class Timetable
 
 public:
     virtual void printTimetable() = 0;
+    virtual void printLowLevelTimetable() = 0;
+    //virtual bool handle_conflict(int day, pair<int, int> dur, char group) = 0;
 };
 
-class StudentTable
+class StudentTable : public Timetable
 {
 
 public:
     Student_Timetable s;
 
-    void printTimetable();
-    void printLowLevelTimetable();
+    void printTimetable() override;
+    void printLowLevelTimetable() override;
     void load_binary_file_into_memory(const std::string &studentFileLocation);
-    void write_timetable_into_binary_file(const std::string& studentFileLocation);
+    void write_timetable_into_binary_file(const std::string &studentFileLocation);
     void reoconstruct_multiple_students_timetables_form_this_professor_into_memory(const Teacher_Timetable &t, const std::string &profname);
+    bool handle_conflict(int day, pair<int, int> dur, char group);
 };
 
 void StudentTable::reoconstruct_multiple_students_timetables_form_this_professor_into_memory(
@@ -99,22 +100,25 @@ void StudentTable::reoconstruct_multiple_students_timetables_form_this_professor
 
     for (const std::string &session : t.sessions)
     {
+        ofstream st;
 
-        if(fs::exists("students/" + session + ".bin")){
-            load_binary_file_into_memory("students/" + session + ".bin");  // fills 's'
-             std::cout << "session file " << session << " opened  !!!\n";
-        }
-        else{
-             std::ofstream st("students/" + session + ".bin", ios::binary);
-        if (!st.is_open())
+        if (fs::exists("students/" + session + ".bin"))
         {
-            std::cerr << "error opening session file from professor!" << std::endl;
-            return;
+            load_binary_file_into_memory("students/" + session + ".bin"); // fills 's'
+            std::cout << "session file " << session << " opened  !!!\n";
         }
-        std::cout << "session file " << session << " created  !!!\n";
+        else
+        {
+             st.open("students/" + session + ".bin", ios::binary);
+            if (!st.is_open())
+            {
+                std::cerr << "error opening session file from professor!" << std::endl;
+                return;
+            }
+            std::cout << "session file " << session << " created  !!!\n";
+             s={};
+           
         }
-
-       
 
         // ---------- utility lambdas ----------
 
@@ -174,24 +178,34 @@ void StudentTable::reoconstruct_multiple_students_timetables_form_this_professor
                     if (t.sessions[sessionIndex] == session)
                     {
 
-                        s.days[day].push_back({find_or_insert_subject(t.subjects[slot.subjectIndex]),
-                                               find_or_insert_professor(),
-                                               find_or_insert_room(t.rooms[slot.roomIndex]),
-                                               slot.startTime,
-                                               slot.endTime,
-                                               groupCode[1]});
+                        bool conflictResolved = handle_conflict(day, {slot.startTime, slot.endTime}, groupCode[1]);
+
+                        if (!conflictResolved)
+                        {
+                            cout << "\nslot already present in student timetable ... skipping this addition!" << endl;
+                        }
+                        else
+                        {
+
+                            s.days[day].push_back({find_or_insert_subject(t.subjects[slot.subjectIndex]),
+                                                   find_or_insert_professor(),
+                                                   find_or_insert_room(t.rooms[slot.roomIndex]),
+                                                   slot.startTime,
+                                                   slot.endTime,
+                                                   groupCode[1]});
+                        }
                     }
                 }
             }
         }
 
         write_timetable_into_binary_file("students/" + session + ".bin");
-           //printLowLevelTimetable();
-    }
+        //    printLowLevelTimetable();
+        printTimetable();
 
-    // printTimetable();
-    
- 
+        if(st.is_open()) st.close();
+        
+    }
 }
 
 void StudentTable::printTimetable()
@@ -235,10 +249,10 @@ void StudentTable::printTimetable()
                 cout << "  Room: " << roomName << "\n";
 
                 // Time in HH:MM format
-                int startHour = slot.startTime / 100;
-                int startMin = slot.startTime % 100;
-                int endHour = slot.endTime / 100;
-                int endMin = slot.endTime % 100;
+                int startHour = slot.startTime / 60;
+                int startMin = slot.startTime % 60;
+                int endHour = slot.endTime / 60;
+                int endMin = slot.endTime % 60;
                 printf("  Time: %02d:%02d - %02d:%02d\n", startHour, startMin, endHour, endMin);
 
                 // Group
@@ -326,105 +340,118 @@ void StudentTable::printLowLevelTimetable()
     cout << "\n===== END =====\n";
 }
 
-
-void StudentTable::write_timetable_into_binary_file(const std::string& studentFileLocation) {
+void StudentTable::write_timetable_into_binary_file(const std::string &studentFileLocation)
+{
 
     std::ofstream out;
 
-    if (studentFileLocation.empty()) {
+    if (studentFileLocation.empty())
+    {
         std::cerr << "Error: no file path provided.\n";
         return;
-    } else {
+    }
+    else
+    {
         std::cout << "file path : " << studentFileLocation << std::endl;
         out.open(studentFileLocation, std::ios::binary);
     }
 
-    if (!out.is_open()) {
+    if (!out.is_open())
+    {
         std::cerr << "File could not be opened for writing.\n";
         return;
     }
 
     // ---- Write string vectors: professors, rooms, subjects ----
-    std::vector<std::string>* vecPtrs[] = { &s.professors, &s.rooms, &s.subjects };
+    std::vector<std::string> *vecPtrs[] = {&s.professors, &s.rooms, &s.subjects};
 
-    for (int v = 0; v < 3; v++) {
+    for (int v = 0; v < 3; v++)
+    {
         size_t vecSize = vecPtrs[v]->size();
-        out.write(reinterpret_cast<const char*>(&vecSize), sizeof(vecSize));
-        for (size_t i = 0; i < vecPtrs[v]->size(); i++) {
+        out.write(reinterpret_cast<const char *>(&vecSize), sizeof(vecSize));
+        for (size_t i = 0; i < vecPtrs[v]->size(); i++)
+        {
             size_t len = (*vecPtrs[v])[i].size();
-            out.write(reinterpret_cast<const char*>(&len), sizeof(len));
+            out.write(reinterpret_cast<const char *>(&len), sizeof(len));
             out.write((*vecPtrs[v])[i].data(), len);
         }
     }
 
     // ---- Write Student_Slot members in correct order ----
-    for (int d = 0; d < 7; d++) {
+    for (int d = 0; d < 7; d++)
+    {
 
         size_t numStudentSlots = s.days[d].size();
-        out.write(reinterpret_cast<const char*>(&numStudentSlots), sizeof(numStudentSlots));
+        out.write(reinterpret_cast<const char *>(&numStudentSlots), sizeof(numStudentSlots));
 
-        for (size_t i = 0; i < numStudentSlots; i++) {
+        for (size_t i = 0; i < numStudentSlots; i++)
+        {
 
-            Student_Slot& m = s.days[d][i];
+            Student_Slot &m = s.days[d][i];
 
             // Correct order: subject → professor → room → start → end → group
-            out.write(reinterpret_cast<const char*>(&m.subjectIndex), sizeof(m.subjectIndex));
-            out.write(reinterpret_cast<const char*>(&m.professorIndex), sizeof(m.professorIndex));
-            out.write(reinterpret_cast<const char*>(&m.roomIndex), sizeof(m.roomIndex));
-            out.write(reinterpret_cast<const char*>(&m.startTime), sizeof(m.startTime));
-            out.write(reinterpret_cast<const char*>(&m.endTime), sizeof(m.endTime));
-            out.write(reinterpret_cast<const char*>(&m.group), sizeof(m.group));
+            out.write(reinterpret_cast<const char *>(&m.subjectIndex), sizeof(m.subjectIndex));
+            out.write(reinterpret_cast<const char *>(&m.professorIndex), sizeof(m.professorIndex));
+            out.write(reinterpret_cast<const char *>(&m.roomIndex), sizeof(m.roomIndex));
+            out.write(reinterpret_cast<const char *>(&m.startTime), sizeof(m.startTime));
+            out.write(reinterpret_cast<const char *>(&m.endTime), sizeof(m.endTime));
+            out.write(reinterpret_cast<const char *>(&m.group), sizeof(m.group));
         }
     }
 
     out.close();
 
     // Optional: call printTimetable() to verify
-   // this->printTimetable();
+    // this->printTimetable();
 }
 
+void StudentTable::load_binary_file_into_memory(const std::string &studentFileLocation)
+{
 
-void StudentTable::load_binary_file_into_memory(const std::string& studentFileLocation) {
-
-    auto& readS = this->s;
+    auto &readS = this->s;
 
     std::ifstream in(studentFileLocation, std::ios::binary);
-    if (!in.is_open()) {
+    if (!in.is_open())
+    {
         std::cerr << "File could not be opened for reading.\n";
         return;
     }
 
     // ---- Read string vectors: professors, rooms, subjects ----
-    std::vector<std::string>* readVecPtrs[] = { &readS.professors, &readS.rooms, &readS.subjects };
+    std::vector<std::string> *readVecPtrs[] = {&readS.professors, &readS.rooms, &readS.subjects};
 
-    for (int v = 0; v < 3; v++) {
+    for (int v = 0; v < 3; v++)
+    {
         size_t vecSize;
-        in.read(reinterpret_cast<char*>(&vecSize), sizeof(vecSize));
+        in.read(reinterpret_cast<char *>(&vecSize), sizeof(vecSize));
         readVecPtrs[v]->resize(vecSize);
-        for (size_t i = 0; i < vecSize; i++) {
+        for (size_t i = 0; i < vecSize; i++)
+        {
             size_t len;
-            in.read(reinterpret_cast<char*>(&len), sizeof(len));
+            in.read(reinterpret_cast<char *>(&len), sizeof(len));
             (*readVecPtrs[v])[i].resize(len);
             in.read((*readVecPtrs[v])[i].data(), len);
         }
     }
 
     // ---- Read days[7] and their Student_Slots ----
-    for (int d = 0; d < 7; d++) {
+    for (int d = 0; d < 7; d++)
+    {
         size_t numStudentSlots;
-        in.read(reinterpret_cast<char*>(&numStudentSlots), sizeof(numStudentSlots));
+        in.read(reinterpret_cast<char *>(&numStudentSlots), sizeof(numStudentSlots));
         readS.days[d].resize(numStudentSlots);
 
-        for (size_t i = 0; i < numStudentSlots; i++) {
-            Student_Slot& m = readS.days[d][i];
+        for (size_t i = 0; i < numStudentSlots; i++)
+        {
+            Student_Slot &m = readS.days[d][i];
 
             // Read primitive members
-            in.read(reinterpret_cast<char*>(&m.subjectIndex), sizeof(m.subjectIndex));
-            in.read(reinterpret_cast<char*>(&m.professorIndex), sizeof(m.professorIndex));
-            in.read(reinterpret_cast<char*>(&m.roomIndex), sizeof(m.roomIndex));
-            in.read(reinterpret_cast<char*>(&m.startTime), sizeof(m.startTime));
-            in.read(reinterpret_cast<char*>(&m.endTime), sizeof(m.endTime));
-            in.read(reinterpret_cast<char*>(&m.group), sizeof(m.group));
+            in.read(reinterpret_cast<char *>(&m.subjectIndex), sizeof(m.subjectIndex));
+            in.read(reinterpret_cast<char *>(&m.professorIndex), sizeof(m.professorIndex));
+            in.read(reinterpret_cast<char *>(&m.roomIndex), sizeof(m.roomIndex));
+            in.read(reinterpret_cast<char *>(&m.startTime), sizeof(m.startTime));
+            in.read(reinterpret_cast<char *>(&m.endTime), sizeof(m.endTime));
+            in.read(reinterpret_cast<char *>(&m.group), sizeof(m.group));
         }
     }
 
@@ -432,15 +459,53 @@ void StudentTable::load_binary_file_into_memory(const std::string& studentFileLo
     s = readS;
 
     // Optional: print to verify
-    //this->printTimetable();
+    // this->printTimetable();
 
     in.close();
 }
 
+bool StudentTable::handle_conflict(int day, pair<int, int> dur, char group)
+{
+    cout << "\n\n-------------------entering conflict resolution mode-----------\n\n";
+    bool slotFound = false;
+    auto s = this->s;
 
+    cout << "\nday : " << day << " timing( " << dur.first << ", " << dur.second << " )" << endl;
 
+    if (s.days[day].size() == 0)
+    {
+        slotFound = true;
+        return slotFound;
+    }
 
-class TeacherTable : public Timetable, public StudentTable
+    for (auto mapping : s.days[day])
+    {
+        //cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
+    }
+
+    for (auto subjectMeta : s.days[day])
+    {
+        if (
+            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.startTime && dur.second <= subjectMeta.endTime) ||
+            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.endTime) ||
+            (dur.first >= subjectMeta.startTime && dur.first <= subjectMeta.endTime && dur.second >= subjectMeta.endTime) ||
+            (dur.first >= subjectMeta.startTime && dur.second <= subjectMeta.endTime))
+        {
+
+            slotFound = subjectMeta.group == group ? false : true;
+            break;
+        }
+        else
+        {
+            slotFound = true;
+            
+        }
+    }
+
+    return slotFound;
+}
+
+class TeacherTable : public Timetable
 {
 private:
     // Stores the complete timetable data for a professor
@@ -449,6 +514,8 @@ private:
 public:
     // Static list to keep track of all professor timetable files
     // Shared across all instances of TeacherTable
+
+    StudentTable s;
 
     Teacher_Timetable get_professor_timetable()
     {
@@ -468,7 +535,7 @@ public:
 
     void printTimetable() override; // overriding the base class method
 
-    void printLowLevelTimetable(); // for developer only debugging
+    void printLowLevelTimetable() override; // for developer only debugging
 
     void deleteEntry(Delete entry); // Delete entry = {day, start_time}
 
@@ -533,10 +600,10 @@ void TeacherTable::printTimetable()
                 cout << "  Room: " << roomName << "\n";
 
                 // Time in HH:MM format
-                int startHour = slot.startTime / 100;
-                int startMin = slot.startTime % 100;
-                int endHour = slot.endTime / 100;
-                int endMin = slot.endTime % 100;
+                int startHour = slot.startTime / 60;
+                int startMin = slot.startTime % 60;
+                int endHour = slot.endTime / 60;
+                int endMin = slot.endTime % 60;
                 printf("  Time: %02d:%02d - %02d:%02d\n", startHour, startMin, endHour, endMin);
 
                 // Sessions & Groups
@@ -765,16 +832,16 @@ bool TeacherTable::handle_conflict(int day, pair<int, int> dur)
 
     for (auto mapping : t.days[day])
     {
-        cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
+        // cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
     }
 
     for (auto subjectMeta : t.days[day])
     {
         if (
-            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.startTime && dur.second <= subjectMeta.endTime) ||
-            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.endTime) ||
-            (dur.first >= subjectMeta.startTime && dur.first <= subjectMeta.endTime && dur.second >= subjectMeta.endTime) ||
-            (dur.first >= subjectMeta.startTime && dur.second <= subjectMeta.endTime))
+            (dur.first < subjectMeta.startTime && dur.second > subjectMeta.startTime && dur.second < subjectMeta.endTime) ||
+            (dur.first < subjectMeta.startTime && dur.second > subjectMeta.endTime) ||
+            (dur.first > subjectMeta.startTime && dur.first < subjectMeta.endTime && dur.second > subjectMeta.endTime) ||
+            (dur.first > subjectMeta.startTime && dur.second < subjectMeta.endTime))
         {
             slotFound = false;
             break;
@@ -930,6 +997,9 @@ int main()
         {
 
             TeacherTable::professors_timeTable_name.push_back(entry.path().filename().string()); // track professors record in class's static variable
+            TeacherTable *professor = new TeacherTable(professors_folder_path + "/" + entry.path().filename().string() , false);
+             professor->load_binary_file_into_memory(professors_folder_path + "/" + entry.path().filename().string());
+            professor->s.reoconstruct_multiple_students_timetables_form_this_professor_into_memory(professor->get_professor_timetable(), entry.path().filename().string());
         }
     }
 
@@ -986,7 +1056,6 @@ int main()
 
         TeacherTable *professor = new TeacherTable(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id - 1], false);
         professor->load_binary_file_into_memory(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id - 1]);
-        professor->reoconstruct_multiple_students_timetables_form_this_professor_into_memory(professor->get_professor_timetable(), TeacherTable::professors_timeTable_name[id - 1]);
 
         cout << "Teacher Selected: " << professor->professorName << endl;
 
@@ -999,13 +1068,13 @@ int main()
         case 1:
         {
 
+         auto convert_into_minutes = [](const std::string& time) -> int {
+    int hours = std::stoi(time.substr(0, 2));
+    int mins  = std::stoi(time.substr(3, 2)); // start after the colon
+    return hours * 60 + mins;
+};
+
             Insert i;
-            // string subject;
-            // string session;
-            // string room;
-            // int day;
-            //     pair<int, int> dur;
-            // string sessionCode;
 
             cout << "In which day you want to reserve slot : ";
             cin >> i.day;
@@ -1034,9 +1103,15 @@ int main()
             cin >> i.room;
             cout << endl;
 
-            cout << "Enter Start Time (in 24-hr format without colon, e.g., 1300 for 1 PM): ";
-            cin >> i.dur.first;
-            cin >> i.dur.second;
+            string st, nd;
+            cout << "Enter Start_Time and End_Time (in 24-hr format ): ";
+
+            cin >>st;
+            cin >> nd;
+
+            i.dur.first = convert_into_minutes(st);
+            i.dur.second = convert_into_minutes(nd);
+
             cout << endl;
 
             professor->insert(i);
