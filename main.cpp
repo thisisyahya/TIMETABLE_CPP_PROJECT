@@ -466,44 +466,33 @@ void StudentTable::load_binary_file_into_memory(const std::string &studentFileLo
 
 bool StudentTable::handle_conflict(int day, pair<int, int> dur, char group)
 {
-    cout << "\n\n-------------------entering conflict resolution mode-----------\n\n";
-    bool slotFound = false;
-    auto s = this->s;
+    const auto& daySlots = this->s.days[day];
 
-    cout << "\nday : " << day << " timing( " << dur.first << ", " << dur.second << " )" << endl;
+    // No slots → no conflict
+    if (daySlots.empty())
+        return true;
 
-    if (s.days[day].size() == 0)
+    for (const auto& slot : daySlots)
     {
-        slotFound = true;
-        return slotFound;
+        bool overlap =
+            dur.first <= slot.endTime &&
+            dur.second >=  slot.startTime;
+
+        if (!overlap)
+        continue; 
+
+        // Full-class blocks everything
+        if (slot.group == 'f')
+            return false;
+
+        // Different groups cannot overlap
+        if (slot.group == group)
+            return false;
     }
 
-    for (auto mapping : s.days[day])
-    {
-        //cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
-    }
-
-    for (auto subjectMeta : s.days[day])
-    {
-        if (
-            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.startTime && dur.second <= subjectMeta.endTime) ||
-            (dur.first <= subjectMeta.startTime && dur.second >= subjectMeta.endTime) ||
-            (dur.first >= subjectMeta.startTime && dur.first <= subjectMeta.endTime && dur.second >= subjectMeta.endTime) ||
-            (dur.first >= subjectMeta.startTime && dur.second <= subjectMeta.endTime))
-        {
-
-            slotFound = subjectMeta.group == group ? false : true;
-            break;
-        }
-        else
-        {
-            slotFound = true;
-            
-        }
-    }
-
-    return slotFound;
+    return true;
 }
+
 
 class TeacherTable : public Timetable
 {
@@ -835,13 +824,13 @@ bool TeacherTable::handle_conflict(int day, pair<int, int> dur)
         // cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
     }
 
-    for (auto subjectMeta : t.days[day])
+    for (auto slot : t.days[day])
     {
         if (
-            (dur.first < subjectMeta.startTime && dur.second > subjectMeta.startTime && dur.second < subjectMeta.endTime) ||
-            (dur.first < subjectMeta.startTime && dur.second > subjectMeta.endTime) ||
-            (dur.first > subjectMeta.startTime && dur.first < subjectMeta.endTime && dur.second > subjectMeta.endTime) ||
-            (dur.first > subjectMeta.startTime && dur.second < subjectMeta.endTime))
+            (dur.first < slot.startTime && dur.second > slot.startTime && dur.second < slot.endTime) ||
+            (dur.first < slot.startTime && dur.second > slot.endTime) ||
+            (dur.first > slot.startTime && dur.first < slot.endTime && dur.second > slot.endTime) ||
+            (dur.first > slot.startTime && dur.second < slot.endTime))
         {
             slotFound = false;
             break;
