@@ -5,6 +5,7 @@
 #include <map>
 #include <stdexcept>
 #include <filesystem>
+#include<memory>
 
 using namespace std;
 namespace fs = filesystem;
@@ -984,7 +985,7 @@ int main()
 
         if (entry.is_regular_file())
         {
-
+           
             TeacherTable::professors_timeTable_name.push_back(entry.path().filename().string()); // track professors record in class's static variable
             TeacherTable *professor = new TeacherTable(professors_folder_path + "/" + entry.path().filename().string() , false);
              professor->load_binary_file_into_memory(professors_folder_path + "/" + entry.path().filename().string());
@@ -1043,7 +1044,8 @@ int main()
         int id;
         cin >> id;
 
-        TeacherTable *professor = new TeacherTable(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id - 1], false);
+
+       unique_ptr<TeacherTable> professor = make_unique<TeacherTable>(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id - 1], false);
         professor->load_binary_file_into_memory(professors_folder_path + "/" + TeacherTable::professors_timeTable_name[id - 1]);
 
         cout << "Teacher Selected: " << professor->professorName << endl;
@@ -1057,9 +1059,9 @@ int main()
         case 1:
         {
 
-         auto convert_into_minutes = [](const std::string& time) -> int {
-    int hours = std::stoi(time.substr(0, 2));
-    int mins  = std::stoi(time.substr(3, 2)); // start after the colon
+    auto convert_into_minutes = [](const std::string& time) -> int {
+    int hours = stoi(time.substr(0, 2));
+    int mins  = stoi(time.substr(3, 2)); // start after the colon
     return hours * 60 + mins;
 };
 
@@ -1111,12 +1113,23 @@ int main()
         {
             Delete d;
 
+             auto convert_into_minutes = [](const std::string& time) -> int {
+    int hours = std::stoi(time.substr(0, 2));
+    int mins  = std::stoi(time.substr(3, 2)); // start after the colon
+    return hours * 60 + mins;
+};
+
+string starting_time;
+
             cout << "In which day you want to delete entry : ";
             cin >> d.day;
             cout << endl;
 
             cout << "Enter Start Time of the session to delete (in 24-hr format without colon, e.g., 1300 for 1 PM): ";
-            cin >> d.start_time;
+            cin >> starting_time;
+
+            d.start_time = convert_into_minutes(starting_time);
+
             cout << endl;
 
             professor->deleteEntry(d);
@@ -1134,7 +1147,7 @@ int main()
         case 4:
         {
             cout << "skipping ... " << endl;
-            delete professor;
+           // delete professor;  //deleting professor from dynamic memory
             break;
         }
 
