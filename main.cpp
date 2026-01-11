@@ -5,7 +5,7 @@
 #include <map>
 #include <stdexcept>
 #include <filesystem>
-#include<memory>
+#include<memory>   //for using unique_ptr 
 
 using namespace std;
 namespace fs = filesystem;
@@ -48,6 +48,21 @@ struct Student_Timetable
     vector<Student_Slot> days[7];
 };
 
+struct Room_Slot{
+    int startTime;
+    int endTime;
+    int subjectIndex;
+    int sessionIndex;
+    vector<string> groupCodes;
+};
+
+struct Rooms_Timetable{
+    vector<string> profs;
+    vector<string> subjects;
+    vector<string> sessions;
+    vector<Room_Slot> days[7];
+};
+
 // Structure representing a timetable insertion
 struct Insert
 {
@@ -71,7 +86,8 @@ class Timetable
 public:
     virtual void printTimetable() = 0;
     virtual void printLowLevelTimetable() = 0;
-    //virtual bool handle_conflict(int day, pair<int, int> dur, char group) = 0;
+    virtual bool handle_conflict(int day, pair<int, int> dur, const char* group=nullptr, string* teachername=nullptr) = 0;
+    virtual void load_binary_file_into_memory(const std::string &fileLocation) = 0;
 };
 
 class StudentTable : public Timetable
@@ -80,15 +96,16 @@ class StudentTable : public Timetable
 public:
     Student_Timetable s;
 
+    StudentTable(const Teacher_Timetable &t, const std::string &profname);
     void printTimetable() override;
     void printLowLevelTimetable() override;
-    void load_binary_file_into_memory(const std::string &studentFileLocation);
+    void load_binary_file_into_memory(const std::string &studentFileLocation) override;
     void write_timetable_into_binary_file(const std::string &studentFileLocation);
-    void reoconstruct_multiple_students_timetables_form_this_professor_into_memory(const Teacher_Timetable &t, const std::string &profname);
-    bool handle_conflict(int day, pair<int, int> dur, char group);
+
+    bool handle_conflict(int day, pair<int, int> dur, const char* group, string* professorname) override;
 };
 
-void StudentTable::reoconstruct_multiple_students_timetables_form_this_professor_into_memory(
+StudentTable::StudentTable(
 
     const Teacher_Timetable &t,
     const std::string &profname)
@@ -178,8 +195,8 @@ void StudentTable::reoconstruct_multiple_students_timetables_form_this_professor
 
                     if (t.sessions[sessionIndex] == session)
                     {
-
-                        bool conflictResolved = handle_conflict(day, {slot.startTime, slot.endTime}, groupCode[1]);
+                    char code = groupCode[1];
+                        bool conflictResolved = handle_conflict(day, {slot.startTime, slot.endTime}, &code, nullptr);
 
                         if (!conflictResolved)
                         {
@@ -409,8 +426,7 @@ void StudentTable::write_timetable_into_binary_file(const std::string &studentFi
 void StudentTable::load_binary_file_into_memory(const std::string &studentFileLocation)
 {
 
-    auto &readS = this->s;
-
+    auto& readS = this->s;
     std::ifstream in(studentFileLocation, std::ios::binary);
     if (!in.is_open())
     {
@@ -465,7 +481,7 @@ void StudentTable::load_binary_file_into_memory(const std::string &studentFileLo
     in.close();
 }
 
-bool StudentTable::handle_conflict(int day, pair<int, int> dur, char group)
+bool StudentTable::handle_conflict(int day, pair<int, int> dur, const char* group, string* teachername)
 {
     const auto& daySlots = this->s.days[day];
 
@@ -487,7 +503,7 @@ bool StudentTable::handle_conflict(int day, pair<int, int> dur, char group)
             return false;
 
         // Different groups cannot overlap
-        if (slot.group == group)
+        if (slot.group == *group)
             return false;
     }
 
@@ -505,8 +521,6 @@ public:
     // Static list to keep track of all professor timetable files
     // Shared across all instances of TeacherTable
 
-    StudentTable s;
-
     Teacher_Timetable get_professor_timetable()
     {
         return t;
@@ -519,7 +533,7 @@ public:
 
     TeacherTable(const string professorFileName, bool firstCreation);
 
-    void load_binary_file_into_memory(const string &fileName);
+    void load_binary_file_into_memory(const std::string &studentFileLocation) override;
 
     void write_timetable_into_binary_file(const string fileName);
 
@@ -529,7 +543,7 @@ public:
 
     void deleteEntry(Delete entry); // Delete entry = {day, start_time}
 
-    bool handle_conflict(int day, pair<int, int> dur); // handle conflict must runs before any insertion operation
+    bool handle_conflict(int day, pair<int, int> dur, const char* c, string* s) override; // handle conflict must runs before any insertion operation
 
     void insert(Insert entry); // Insert entry = {subject, session, room, day, start_time, end_time}
 };
@@ -743,7 +757,8 @@ void TeacherTable ::write_timetable_into_binary_file(const string profFileLocati
     // PrintTimetable(t);
 }
 
-void TeacherTable ::load_binary_file_into_memory(const string &profFileLocation)
+void TeacherTable ::load_binary_file_into_memory(const std::string &profFileLocation 
+                                 )
 {
     // --- READ FROM BINARY FILE ---
 
@@ -808,7 +823,7 @@ void TeacherTable ::load_binary_file_into_memory(const string &profFileLocation)
     in.close();
 }
 
-bool TeacherTable::handle_conflict(int day, pair<int, int> dur)
+bool TeacherTable::handle_conflict(int day, pair<int, int> dur, const char* c = nullptr, string* s = nullptr)
 {
     cout << "\n\n-------------------entering conflict resolution mode-----------\n\n";
     bool slotFound = false;
@@ -988,8 +1003,10 @@ int main()
            
             TeacherTable::professors_timeTable_name.push_back(entry.path().filename().string()); // track professors record in class's static variable
             TeacherTable *professor = new TeacherTable(professors_folder_path + "/" + entry.path().filename().string() , false);
-             professor->load_binary_file_into_memory(professors_folder_path + "/" + entry.path().filename().string());
-            professor->s.reoconstruct_multiple_students_timetables_form_this_professor_into_memory(professor->get_professor_timetable(), entry.path().filename().string());
+            professor->load_binary_file_into_memory(professors_folder_path + "/" + entry.path().filename().string());
+
+            unique_ptr<StudentTable> s = make_unique<StudentTable>(professor->get_professor_timetable(), entry.path().filename().string());
+            // s.reoconstruct_multiple_students_timetables_form_this_professor_into_memory(professor->get_professor_timetable(), entry.path().filename().string());
         }
     }
 
@@ -1113,9 +1130,9 @@ int main()
         {
             Delete d;
 
-             auto convert_into_minutes = [](const std::string& time) -> int {
-    int hours = std::stoi(time.substr(0, 2));
-    int mins  = std::stoi(time.substr(3, 2)); // start after the colon
+    auto convert_into_minutes = [](const std::string& time) -> int {
+    int hours =stoi(time.substr(0, 2));
+    int mins  = stoi(time.substr(3, 2)); // start after the colon
     return hours * 60 + mins;
 };
 
