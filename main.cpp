@@ -70,7 +70,9 @@ struct Rooms_Timetable
 struct Insert
 {
     string subject;
-    vector<pair<string, string>> session;
+    // vector<pair<string, string>> session;
+    string session;
+    char group;
     string room;
     int day;
     pair<int, int> dur;
@@ -89,7 +91,7 @@ class Timetable
 public:
     virtual void printTimetable() = 0;
     virtual void printLowLevelTimetable() = 0;
-    virtual bool handle_conflict(int day, pair<int, int> dur, const char *group = nullptr, string *teachername = nullptr) = 0;
+   // virtual bool handle_conflict(int day, pair<int, int> dur, string session, const char *group = nullptr, string *teachername = nullptr) = 0;
     virtual void load_binary_file_into_memory(const std::string &fileLocation) = 0;
     virtual void write_timetable_into_binary_file(const std::string &studentFileLocation) = 0;
 };
@@ -108,7 +110,8 @@ public:
     void load_binary_file_into_memory(const std::string &studentFileLocation) override;
     void write_timetable_into_binary_file(const std::string &studentFileLocation) override;
 
-    bool handle_conflict(int day, pair<int, int> dur, const char *group, string *professorname) override;
+    // bool handle_conflict(int day, pair<int, int> dur, const char *group, string *professorname) override;
+    bool handle_conflict(int day, pair<int, int> dur, char group);
 };
 
 StudentTable::StudentTable()
@@ -203,7 +206,7 @@ StudentTable::StudentTable(const Teacher_Timetable &t, const std::string &profna
                     if (t.sessions[sessionIndex] == session)
                     {
 
-                        bool conflictResolved = handle_conflict(day, {slot.startTime, slot.endTime}, &groupCode[1], nullptr);
+                        bool conflictResolved = handle_conflict(day, {slot.startTime, slot.endTime}, groupCode[1]);
                         if (!conflictResolved)
                         {
                             cout << "\nslot already present in student timetable ... skipping this addition!" << endl;
@@ -487,7 +490,7 @@ void StudentTable::load_binary_file_into_memory(const std::string &studentFileLo
     in.close();
 }
 
-bool StudentTable::handle_conflict(int day, pair<int, int> dur, const char *group, string *teachername)
+bool StudentTable::handle_conflict(int day, pair<int, int> dur, char group)
 {
     const auto &daySlots = this->s.days[day];
 
@@ -509,7 +512,7 @@ bool StudentTable::handle_conflict(int day, pair<int, int> dur, const char *grou
             return false;
 
         // Different groups cannot overlap
-        if (slot.group == *group)
+        if (slot.group == group)
             return false;
     }
 
@@ -548,7 +551,7 @@ public:
 
     void deleteEntry(Delete entry); // Delete entry = {day, start_time}
 
-    bool handle_conflict(int day, pair<int, int> dur, const char *c, string *s) override; // handle conflict must runs before any insertion operation
+    bool handle_conflict(int day, pair<int, int> dur, string session, char group, string room); // handle conflict must runs before any insertion operation
 
     void insert(Insert entry); // Insert entry = {subject, session, room, day, start_time, end_time}
 };
@@ -827,7 +830,7 @@ void TeacherTable ::load_binary_file_into_memory(const std::string &profFileLoca
     in.close();
 }
 
-bool TeacherTable::handle_conflict(int day, pair<int, int> dur, const char *c = nullptr, string *s = nullptr)
+bool TeacherTable::handle_conflict(int day, pair<int, int> dur, string session, char group, string room)
 {
     cout << "\n\n-------------------entering conflict resolution mode-----------\n\n";
     bool slotFound = false;
@@ -839,18 +842,19 @@ bool TeacherTable::handle_conflict(int day, pair<int, int> dur, const char *c = 
         return slotFound;
     }
 
-    for (auto mapping : t.days[day])
-    {
-        // cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
-    }
+    // for (auto mapping : t.days[day])
+    // {
+    //     // cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
+    // }
 
     for (auto slot : t.days[day])
     {
-        if (
-            (dur.first < slot.startTime && dur.second > slot.startTime && dur.second < slot.endTime) ||
-            (dur.first < slot.startTime && dur.second > slot.endTime) ||
-            (dur.first > slot.startTime && dur.first < slot.endTime && dur.second > slot.endTime) ||
-            (dur.first > slot.startTime && dur.second < slot.endTime))
+        // if (
+        //     (dur.first < slot.startTime && dur.second > slot.startTime && dur.second < slot.endTime) ||
+        //     (dur.first < slot.startTime && dur.second > slot.endTime) ||
+        //     (dur.first > slot.startTime && dur.first < slot.endTime && dur.second > slot.endTime) ||
+        //     (dur.first > slot.startTime && dur.second < slot.endTime))
+        if(dur.first < slot.endTime && dur.second > slot.startTime)
         {
             slotFound = false;
             break;
@@ -861,114 +865,66 @@ bool TeacherTable::handle_conflict(int day, pair<int, int> dur, const char *c = 
         }
     }
 
+     unique_ptr<StudentTable> sessionObj = make_unique<StudentTable>();
+     sessionObj->load_binary_file_into_memory(students_folder_path + "/" + session);
+
+     slotFound = sessionObj->handle_conflict(day, dur, group);
+
     return slotFound;
 }
 
+
+
+
 void TeacherTable::insert(Insert entry)
 {
-
     try
     {
         cout << "\n\n------------------------\n\n";
-        int indexOfSubject;
-        int indexOfSession;
-        int indexOfRoom;
 
-        bool subjectFound = false;
-        bool sessionFound = false;
-        bool roomFound = false;
+        // Helper lambda to find index or add if not found
+        auto findOrAdd = [](vector<string> &vec, const string &value) -> int {
+            for (int i = 0; i < vec.size(); i++)
+                if (vec[i] == value) return i;
+            vec.push_back(value);
+            return vec.size() - 1;
+        };
 
-        vector<string> sessionCodes;
+        int indexOfSubject = findOrAdd(t.subjects, entry.subject);
+        int indexOfRoom    = findOrAdd(t.rooms, entry.room);
+        int indexOfSession = findOrAdd(t.sessions, entry.session);
 
-        for (int i = 0; i < entry.session.size(); i++)
-        {
-            bool found = false;
-            int indexOfSession = -1;
-
-            // Check if session already exists in t.sessions
-            for (int j = 0; j < t.sessions.size(); j++)
-            {
-                if (t.sessions[j] == entry.session[i].first)
-                {
-                    found = true;
-                    indexOfSession = j;
-                    break;
-                }
-            }
-
-            // If session not found, add it
-            if (!found)
-            {
-                t.sessions.push_back(entry.session[i].first);
-                indexOfSession = t.sessions.size() - 1;
-            }
-
-            // Add the code with session index
-            sessionCodes.push_back(to_string(indexOfSession) + entry.session[i].second);
-        }
-
-        for (int i = 0; i < t.rooms.size(); i++)
-        {
-            if (t.rooms[i] == entry.room)
-            {
-                roomFound = true;
-                indexOfRoom = i;
-                break;
-            }
-        }
-
-        for (int i = 0; i < t.subjects.size(); i++)
-        {
-            if (t.subjects[i] == entry.subject)
-            {
-                subjectFound = true;
-                indexOfSubject = i;
-                break;
-            }
-        }
-
-        if (!roomFound)
-        {
-            t.rooms.push_back(entry.room);
-            indexOfRoom = t.rooms.size() - 1;
-        }
-
-        if (!subjectFound)
-        {
-            t.subjects.push_back(entry.subject);
-            indexOfSubject = t.subjects.size() - 1;
-        }
-
-        // if (!sessionFound)
-        // {
-        //     t.sessions.push_back(entry.session);
-        //     indexOfSession = t.sessions.size()-1;
-        // }
-
-        bool conflictResolved = handle_conflict(entry.day, entry.dur);
-
-        if (!conflictResolved)
+        // Check for conflict
+        if (!this->handle_conflict(entry.day, entry.dur, entry.session, entry.group, entry.room))
         {
             cout << "Teacher_Slot already Reserved !!!" << endl;
             return;
         }
-        else
-        {
-            cout << "slot is free !!!" << endl;
-        }
+       
+        // Add entry to timetable
+        t.days[entry.day].push_back({
+            indexOfSubject,
+            indexOfRoom,
+            entry.dur.first,
+            entry.dur.second,
+            {entry.session + entry.group}
+        });
 
-        t.days[entry.day].push_back({indexOfSubject, indexOfRoom, entry.dur.first, entry.dur.second, {sessionCodes}});
-
+        // Save and print
         this->write_timetable_into_binary_file(professors_folder_path + "/" + this->professorName);
         this->printTimetable();
-        return;
+
+         cout << "Slot has been reserved !!!" << endl;
+
     }
     catch (exception &e)
     {
         cerr << "An error occurred: " << e.what() << endl;
-        return;
     }
 }
+
+
+
 
 void TeacherTable::deleteEntry(Delete entry)
 {
@@ -1000,7 +956,8 @@ public:
 
     RoomsTable();
     void printTimetable() override;
-    bool handle_conflict(int day, pair<int, int> dur, const char *group = nullptr, string *teachername = nullptr) override;
+    void printLowLevelTimetable() override;
+    bool handle_conflict(int day, pair<int, int> dur, const char *group = nullptr, string *teachername = nullptr);
     void load_binary_file_into_memory(const std::string &fileLocation) override;
     void write_timetable_into_binary_file(const std::string &fileLocation) override;
 };
@@ -1273,6 +1230,11 @@ void RoomsTable::load_binary_file_into_memory(const std::string &roomFileLocatio
 }
 
 
+void RoomsTable::printLowLevelTimetable() {
+    // Provide actual implementation, even if empty
+    cout << "RoomsTable low-level timetable" << endl;
+}
+
 
 vector<string> TeacherTable ::professors_timeTable_name; // static variable
 vector<string> StudentTable ::sessions_timeTable_name;   // static variable
@@ -1357,32 +1319,32 @@ int main()
             session->printTimetable();
         }
 
-        if (menu_choice == 4)
-        {
-            cout << "\nList of Rooms Available: \n"
-                 << endl;
+        // if (menu_choice == 4)
+        // {
+        //     cout << "\nList of Rooms Available: \n"
+        //          << endl;
 
-            int n = 1;
-            for (const string &name : RoomsTable::rooms_timeTable_name)
-            {
-                cout << n << ". " << name << endl;
-                n++;
-            }
+        //     int n = 1;
+        //     for (const string &name : RoomsTable::rooms_timeTable_name)
+        //     {
+        //         cout << n << ". " << name << endl;
+        //         n++;
+        //     }
 
-            cout << "\nSelect Room Id: ";
-            int id;
-            cin >> id;
+        //     cout << "\nSelect Room Id: ";
+        //     int id;
+        //     cin >> id;
 
-            // Create a unique pointer to RoomsTable object
-            unique_ptr<RoomsTable> roomSession = make_unique<RoomsTable>();
+        //     // Create a unique pointer to RoomsTable object
+        //     unique_ptr<RoomsTable> roomSession = make_unique<RoomsTable>();
 
-            // Load its binary file into memory
-            roomSession->load_binary_file_into_memory(
-                rooms_folder_path + "/" + RoomsTable::rooms_timeTable_name[id - 1]);
+        //     // Load its binary file into memory
+        //     roomSession->load_binary_file_into_memory(
+        //         rooms_folder_path + "/" + RoomsTable::rooms_timeTable_name[id - 1]);
 
-            // Print the timetable
-            // roomSession->printTimetable();
-        }
+        //     // Print the timetable
+        //     // roomSession->printTimetable();
+        // }
 
         if (menu_choice == 2)
         {
@@ -1442,6 +1404,8 @@ int main()
             case 1:
             {
 
+            
+
                 auto convert_into_minutes = [](const std::string &time) -> int
                 {
                     int hours = stoi(time.substr(0, 2));
@@ -1460,19 +1424,26 @@ int main()
                 cout << endl;
 
                 string sessionName;
-                string group;
+                char group;
 
-                while (true)
-                {
-                    cout << "Enter Session(s) Name | group (0 to proceed): ";
-                    cin >> sessionName >> group;
-                    cout << endl;
-                    if (sessionName == "0" || group == "0")
-                        break;
+                label :
+                cout<<"Must enter valid group (a / b)";
 
-                    i.session.push_back({sessionName, group});
-                    cout << endl;
-                }
+                cout << "Enter Session(s) Name | group : ";
+                cin >> i.session >> i.group;
+
+                 if((i.group != 'a') || i.group!='b') goto label;
+                // while (true)
+                // {
+                //     cout << "Enter Session(s) Name | group (0 to proceed): ";
+                //     cin >> sessionName >> group;
+                //     cout << endl;
+                //     if (sessionName == "0" || group == "0")
+                //         break;
+
+                //     i.session.push_back({sessionName, group});
+                //     cout << endl;
+                // }
 
                 cout << "Enter Room Name : ";
                 cin >> i.room;
