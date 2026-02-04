@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <stdexcept>
+#include <stdexcept>   // for error handling
 #include <filesystem>
 #include <memory> //for using unique_ptr
 
@@ -58,13 +58,7 @@ struct Room_Slot
     vector<string> groupCodes;
 };
 
-struct Rooms_Timetable
-{
-    vector<string> profs;
-    vector<string> subjects;
-    vector<string> sessions;
-    vector<Room_Slot> days[7];
-};
+
 
 // Structure representing a timetable insertion
 struct Insert
@@ -91,7 +85,7 @@ class Timetable
 public:
     virtual void printTimetable() = 0;
     virtual void printLowLevelTimetable() = 0;
-   // virtual bool handle_conflict(int day, pair<int, int> dur, string session, const char *group = nullptr, string *teachername = nullptr) = 0;
+    // virtual bool handle_conflict(int day, pair<int, int> dur, string session, const char *group = nullptr, string *teachername = nullptr) = 0;
     virtual void load_binary_file_into_memory(const std::string &fileLocation) = 0;
     virtual void write_timetable_into_binary_file(const std::string &studentFileLocation) = 0;
 };
@@ -110,7 +104,6 @@ public:
     void load_binary_file_into_memory(const std::string &studentFileLocation) override;
     void write_timetable_into_binary_file(const std::string &studentFileLocation) override;
 
-    // bool handle_conflict(int day, pair<int, int> dur, const char *group, string *professorname) override;
     bool handle_conflict(int day, pair<int, int> dur, char group);
 };
 
@@ -119,7 +112,8 @@ StudentTable::StudentTable()
     cout << "\n\n==============================object initializeed\n==============================";
 }
 
-StudentTable::StudentTable(const Teacher_Timetable &t, const std::string &profname){
+StudentTable::StudentTable(const Teacher_Timetable &t, const std::string &profname)
+{
 
     // clear existing student timetable (fixed 7 days)
     for (int d = 0; d < 7; d++)
@@ -528,31 +522,22 @@ private:
 public:
     // Static list to keep track of all professor timetable files
     // Shared across all instances of TeacherTable
-
     Teacher_Timetable get_professor_timetable()
     {
         return t;
     }
-
     static vector<string> professors_timeTable_name;
-
     // Name of the professor associated with this timetable
     string professorName;
 
     TeacherTable(const string professorFileName, bool firstCreation);
 
     void load_binary_file_into_memory(const std::string &studentFileLocation) override;
-
     void write_timetable_into_binary_file(const string &fileName) override;
-
     void printTimetable() override; // overriding the base class method
-
     void printLowLevelTimetable() override; // for developer only debugging
-
     void deleteEntry(Delete entry); // Delete entry = {day, start_time}
-
     bool handle_conflict(int day, pair<int, int> dur, string session, char group, string room); // handle conflict must runs before any insertion operation
-
     void insert(Insert entry); // Insert entry = {subject, session, room, day, start_time, end_time}
 };
 
@@ -842,19 +827,12 @@ bool TeacherTable::handle_conflict(int day, pair<int, int> dur, string session, 
         return slotFound;
     }
 
-    // for (auto mapping : t.days[day])
-    // {
-    //     // cout << mapping.subjectIndex << " " << mapping.roomIndex << " " << mapping.startTime << " " << mapping.endTime << endl;
-    // }
+   
 
     for (auto slot : t.days[day])
     {
-        // if (
-        //     (dur.first < slot.startTime && dur.second > slot.startTime && dur.second < slot.endTime) ||
-        //     (dur.first < slot.startTime && dur.second > slot.endTime) ||
-        //     (dur.first > slot.startTime && dur.first < slot.endTime && dur.second > slot.endTime) ||
-        //     (dur.first > slot.startTime && dur.second < slot.endTime))
-        if(dur.first < slot.endTime && dur.second > slot.startTime)
+
+        if (dur.first < slot.endTime && dur.second > slot.startTime)
         {
             slotFound = false;
             break;
@@ -865,16 +843,13 @@ bool TeacherTable::handle_conflict(int day, pair<int, int> dur, string session, 
         }
     }
 
-     unique_ptr<StudentTable> sessionObj = make_unique<StudentTable>();
-     sessionObj->load_binary_file_into_memory(students_folder_path + "/" + session);
+    unique_ptr<StudentTable> sessionObj = make_unique<StudentTable>();
+    sessionObj->load_binary_file_into_memory(students_folder_path + "/" + session);
 
-     slotFound = sessionObj->handle_conflict(day, dur, group);
+    slotFound = sessionObj->handle_conflict(day, dur, group);
 
     return slotFound;
 }
-
-
-
 
 void TeacherTable::insert(Insert entry)
 {
@@ -883,15 +858,17 @@ void TeacherTable::insert(Insert entry)
         cout << "\n\n------------------------\n\n";
 
         // Helper lambda to find index or add if not found
-        auto findOrAdd = [](vector<string> &vec, const string &value) -> int {
+        auto findOrAdd = [](vector<string> &vec, const string &value) -> int
+        {
             for (int i = 0; i < vec.size(); i++)
-                if (vec[i] == value) return i;
+                if (vec[i] == value)
+                    return i;
             vec.push_back(value);
             return vec.size() - 1;
         };
 
         int indexOfSubject = findOrAdd(t.subjects, entry.subject);
-        int indexOfRoom    = findOrAdd(t.rooms, entry.room);
+        int indexOfRoom = findOrAdd(t.rooms, entry.room);
         int indexOfSession = findOrAdd(t.sessions, entry.session);
 
         // Check for conflict
@@ -900,31 +877,25 @@ void TeacherTable::insert(Insert entry)
             cout << "Teacher_Slot already Reserved !!!" << endl;
             return;
         }
-       
+
         // Add entry to timetable
-        t.days[entry.day].push_back({
-            indexOfSubject,
-            indexOfRoom,
-            entry.dur.first,
-            entry.dur.second,
-            {entry.session + entry.group}
-        });
+        t.days[entry.day].push_back({indexOfSubject,
+                                     indexOfRoom,
+                                     entry.dur.first,
+                                     entry.dur.second,
+                                     {to_string(indexOfSession) + entry.group}});
 
         // Save and print
         this->write_timetable_into_binary_file(professors_folder_path + "/" + this->professorName);
         this->printTimetable();
 
-         cout << "Slot has been reserved !!!" << endl;
-
+        cout << "Slot has been reserved !!!" << endl;
     }
     catch (exception &e)
     {
         cerr << "An error occurred: " << e.what() << endl;
     }
 }
-
-
-
 
 void TeacherTable::deleteEntry(Delete entry)
 {
@@ -945,300 +916,11 @@ void TeacherTable::deleteEntry(Delete entry)
     }
 }
 
-class RoomsTable : public Timetable
-{
-private:
-    Rooms_Timetable r;
-
-public:
-    static vector<string> rooms_timeTable_name;
-    RoomsTable(const Teacher_Timetable &t, const string &profName);
-
-    RoomsTable();
-    void printTimetable() override;
-    void printLowLevelTimetable() override;
-    bool handle_conflict(int day, pair<int, int> dur, const char *group = nullptr, string *teachername = nullptr);
-    void load_binary_file_into_memory(const std::string &fileLocation) override;
-    void write_timetable_into_binary_file(const std::string &fileLocation) override;
-};
-
-RoomsTable::RoomsTable()
-{
-    cout << "\n\n==============================object initializeed\n==============================";
-}
-
-RoomsTable::RoomsTable(const Teacher_Timetable &t, const string &profName)
-{
-
-
-
-        // clear existing student timetable (fixed 7 days)
-    for (int d = 0; d < 7; d++)
-    {
-        r.days[d].clear();
-    }
-
-    string Room;
-ofstream out;
-
-    for (string room : t.rooms)
-    {
-            
-
-        if (fs::exists("rooms/" + room + ".bin"))
-        {
-            load_binary_file_into_memory("rooms/" + room + ".bin"); // fills 's'
-            std::cout << "room file " << room << " opened  !!!\n";
-        }
-        else
-        {
-            out.open("rooms/" + room + ".bin", ios::binary);
-            if (!out.is_open())
-            {
-                std::cerr << "error opening session file from professor!" << std::endl;
-                return;
-            }
-            std::cout << "room file " << room << " created  !!!\n";
-            r = {};
-        }
-
-        Room = room;
-        // ---------- utility lambdas ----------
-
-        auto find_or_insert_professor = [&](const string &profName) -> int
-        {
-            for (int i = 0; i < r.profs.size(); i++)
-            {
-                if (r.profs[i] == profName)
-                    return i;
-            }
-            r.profs.push_back(profName);
-            return r.profs.size() - 1;
-        };
-
-        auto find_or_insert_subject = [&](const std::string &subjectname) -> int
-        {
-            for (int i = 0; i < r.subjects.size(); i++)
-            {
-                if (r.subjects[i] == subjectname)
-                    return i;
-            }
-            r.subjects.push_back(subjectname);
-            return r.subjects.size() - 1;
-        };
-
-        vector<string> tempGroupCodes;
-
-        auto find_or_insert_session = [&](const std::string &sessionName, const char group) -> int
-        {
-            for (int i = 0; i < r.sessions.size(); i++)
-            {
-                if (r.sessions[i] == sessionName)
-                {
-                    tempGroupCodes.push_back(to_string(r.sessions.size() - 1) + group);
-                    return i;
-                }
-            }
-            r.sessions.push_back(sessionName);
-            tempGroupCodes.push_back(to_string(r.sessions.size() - 1) + group);
-            return r.sessions.size() - 1;
-        };
-
-        
-    int day = 0;
-        for (vector<Teacher_Slot> day_slots : t.days)
-        {
-
-            for (Teacher_Slot slot : day_slots)
-            {
-                if (room == t.rooms[slot.roomIndex])
-                {
-
-                    for (string groupCode : slot.groupCodes)
-                    {
-
-                        int sesisonIndex = groupCode[0] - '0';
-                        find_or_insert_session(t.sessions[sesisonIndex], groupCode[1]);
-                    }
-
-                    r.days[day].push_back({slot.startTime, slot.endTime, find_or_insert_professor(profName), find_or_insert_subject(t.subjects[slot.subjectIndex]), {tempGroupCodes}});
-                }
-            }
-        }
-        day++;
-    }
-
-write_timetable_into_binary_file(rooms_folder_path + "/" + Room + ".bin");
-    printTimetable();
-}
-
-void RoomsTable ::printTimetable()
-{
-    cout << "\n===== ROOMS TIMETABLE =====\n";
-
-    const string daysOfWeek[7] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
-
-    for (int day = 0; day < 7; ++day)
-    {
-        cout << "\n"
-             << daysOfWeek[day] << ":\n";
-
-        if (r.days[day].empty())
-        {
-            cout << "  No entries\n";
-            continue;
-        }
-
-        // Group slots by subject
-        map<int, vector<Room_Slot>> subjectSlots;
-        for (const auto &slot : r.days[day])
-        {
-            subjectSlots[slot.subjectIndex].push_back(slot);
-        }
-
-        for (const auto &subjPair : subjectSlots)
-        {
-            int subjIndex = subjPair.first;
-            string subjectName = (subjIndex >= 0 && subjIndex < r.subjects.size()) ? r.subjects[subjIndex] : "Unknown Subject";
-            cout << "\nSubject: " << subjectName << "\n";
-
-            for (const auto &slot : subjPair.second)
-            {
-                // Professor
-                string professorName = (slot.profIndex >= 0 && slot.profIndex < r.profs.size()) ? r.profs[slot.profIndex] : "Unknown Professor";
-                cout << "  Professor: " << professorName << "\n";
-
-                // Sessions (if any)
-                string sessionName = (slot.subjectIndex >= 0 && slot.subjectIndex < r.sessions.size()) ? r.sessions[slot.subjectIndex] : "Unknown Session";
-                cout << "  Session: " << sessionName << "\n";
-
-                // Time in HH:MM format
-                int startHour = slot.startTime / 60;
-                int startMin = slot.startTime % 60;
-                int endHour = slot.endTime / 60;
-                int endMin = slot.endTime % 60;
-                printf("  Time: %02d:%02d - %02d:%02d\n", startHour, startMin, endHour, endMin);
-
-                // Groups
-                if (!slot.groupCodes.empty())
-                {
-                    cout << "  Groups: ";
-                    for (size_t i = 0; i < slot.groupCodes.size(); ++i)
-                    {
-                        cout << slot.groupCodes[i];
-                        if (i != slot.groupCodes.size() - 1)
-                            cout << ", ";
-                    }
-                    cout << "\n";
-                }
-            }
-        }
-    }
-
-    cout << "\n===== END OF ROOMS TIMETABLE =====\n";
-}
-
-
-
-bool RoomsTable::handle_conflict(int day, std::pair<int, int> dur, const char *group, std::string *teachername)
-{
-    // Implementation
-    return false; // must return a bool
-}
-
-
-
-
-// Helper to write a string
-void write_string(std::ofstream &out, const std::string &s) {
-    size_t len = s.size();
-    out.write(reinterpret_cast<const char *>(&len), sizeof(len));
-    out.write(s.data(), len);
-}
-
-// Helper to read a string
-void read_string(std::ifstream &in, std::string &s) {
-    size_t len;
-    in.read(reinterpret_cast<char *>(&len), sizeof(len));
-    s.resize(len);
-    in.read(s.data(), len);
-}
-
-// Helper to write vector of strings
-void write_string_vector(std::ofstream &out, const std::vector<std::string> &vec) {
-    size_t vecSize = vec.size();
-    out.write(reinterpret_cast<const char *>(&vecSize), sizeof(vecSize));
-    for (const auto &str : vec) write_string(out, str);
-}
-
-// Helper to read vector of strings
-void read_string_vector(std::ifstream &in, std::vector<std::string> &vec) {
-    size_t vecSize;
-    in.read(reinterpret_cast<char *>(&vecSize), sizeof(vecSize));
-    vec.resize(vecSize);
-    for (auto &str : vec) read_string(in, str);
-}
-
-// ---- Simplified write function ----
-void RoomsTable::write_timetable_into_binary_file(const std::string &roomFileLocation) {
-    if (roomFileLocation.empty()) { std::cerr << "Error: no file path.\n"; return; }
-    std::ofstream out(roomFileLocation, std::ios::binary);
-    if (!out.is_open()) { std::cerr << "Cannot open file for writing.\n"; return; }
-
-    // Write professors, subjects, sessions
-    write_string_vector(out, r.profs);
-    write_string_vector(out, r.subjects);
-    write_string_vector(out, r.sessions);
-
-    // Write Room_Slots day-wise
-    for (auto &day : r.days) {
-        size_t numSlots = day.size();
-        out.write(reinterpret_cast<const char *>(&numSlots), sizeof(numSlots));
-        for (auto &slot : day) {
-            out.write(reinterpret_cast<const char *>(&slot.subjectIndex), sizeof(slot.subjectIndex));
-            out.write(reinterpret_cast<const char *>(&slot.profIndex), sizeof(slot.profIndex));
-            out.write(reinterpret_cast<const char *>(&slot.startTime), sizeof(slot.startTime));
-            out.write(reinterpret_cast<const char *>(&slot.endTime), sizeof(slot.endTime));
-            write_string_vector(out, slot.groupCodes);
-        }
-    }
-}
-
-// ---- Simplified read function ----
-void RoomsTable::load_binary_file_into_memory(const std::string &roomFileLocation) {
-    std::ifstream in(roomFileLocation, std::ios::binary);
-    if (!in.is_open()) { std::cerr << "Cannot open file for reading.\n"; return; }
-
-    // Read professors, subjects, sessions
-    read_string_vector(in, r.profs);
-    read_string_vector(in, r.subjects);
-    read_string_vector(in, r.sessions);
-
-    // Read Room_Slots day-wise
-    for (auto &day : r.days) {
-        size_t numSlots;
-        in.read(reinterpret_cast<char *>(&numSlots), sizeof(numSlots));
-        day.resize(numSlots);
-        for (auto &slot : day) {
-            in.read(reinterpret_cast<char *>(&slot.subjectIndex), sizeof(slot.subjectIndex));
-            in.read(reinterpret_cast<char *>(&slot.profIndex), sizeof(slot.profIndex));
-            in.read(reinterpret_cast<char *>(&slot.startTime), sizeof(slot.startTime));
-            in.read(reinterpret_cast<char *>(&slot.endTime), sizeof(slot.endTime));
-            read_string_vector(in, slot.groupCodes);
-        }
-    }
-}
-
-
-void RoomsTable::printLowLevelTimetable() {
-    // Provide actual implementation, even if empty
-    cout << "RoomsTable low-level timetable" << endl;
-}
 
 
 vector<string> TeacherTable ::professors_timeTable_name; // static variable
 vector<string> StudentTable ::sessions_timeTable_name;   // static variable
-vector<string> RoomsTable ::rooms_timeTable_name;        // static variable
+// vector<string> RoomsTable ::rooms_timeTable_name;        // static variable
 
 int main()
 {
@@ -1257,13 +939,8 @@ int main()
             TeacherTable::professors_timeTable_name.push_back(entry.path().filename().string()); // track professors record in class's static variable
             TeacherTable *professor = new TeacherTable(professors_folder_path + "/" + entry.path().filename().string(), false);
             professor->load_binary_file_into_memory(professors_folder_path + "/" + entry.path().filename().string());
-
-            unique_ptr<StudentTable> s = make_unique<StudentTable>(professor->get_professor_timetable(), entry.path().filename().string());
-          unique_ptr<RoomsTable> r = make_unique<RoomsTable>(professor->get_professor_timetable(), entry.path().filename().string());
-            // s.reoconstruct_multiple_students_timetables_form_this_professor_into_memory(professor->get_professor_timetable(), entry.path().filename().string());
         }
     }
-
 
     for (const auto &entry : fs::directory_iterator(students_folder_path))
     {
@@ -1271,15 +948,6 @@ int main()
         if (entry.is_regular_file())
         {
             StudentTable ::sessions_timeTable_name.push_back(entry.path().filename().string()); // track ztudents record in class's static variable
-        }
-    }
-
-    for (const auto &entry : fs::directory_iterator("rooms"))
-    {
-
-        if (entry.is_regular_file())
-        {
-            RoomsTable ::rooms_timeTable_name.push_back(entry.path().filename().string()); // track rooms record in class's static variable
         }
     }
 
@@ -1318,33 +986,6 @@ int main()
 
             session->printTimetable();
         }
-
-        // if (menu_choice == 4)
-        // {
-        //     cout << "\nList of Rooms Available: \n"
-        //          << endl;
-
-        //     int n = 1;
-        //     for (const string &name : RoomsTable::rooms_timeTable_name)
-        //     {
-        //         cout << n << ". " << name << endl;
-        //         n++;
-        //     }
-
-        //     cout << "\nSelect Room Id: ";
-        //     int id;
-        //     cin >> id;
-
-        //     // Create a unique pointer to RoomsTable object
-        //     unique_ptr<RoomsTable> roomSession = make_unique<RoomsTable>();
-
-        //     // Load its binary file into memory
-        //     roomSession->load_binary_file_into_memory(
-        //         rooms_folder_path + "/" + RoomsTable::rooms_timeTable_name[id - 1]);
-
-        //     // Print the timetable
-        //     // roomSession->printTimetable();
-        // }
 
         if (menu_choice == 2)
         {
@@ -1404,19 +1045,44 @@ int main()
             case 1:
             {
 
-            
-
+                
+                //after checking time logic
                 auto convert_into_minutes = [](const std::string &time) -> int
                 {
-                    int hours = stoi(time.substr(0, 2));
-                    int mins = stoi(time.substr(3, 2)); // start after the colon
-                    return hours * 60 + mins;
+                    // Basic format check: length should be 5 (HH:MM) and 3rd char must be ':'
+                    if (time.length() != 5 || time[2] != ':')
+                        return -1;
+
+                    try
+                    {
+                        int hours = std::stoi(time.substr(0, 2));
+                        int mins = std::stoi(time.substr(3, 2));
+
+                        // Logic level check for valid time ranges
+                        if (hours < 0 || hours > 23 || mins < 0 || mins > 59)
+                        {
+                            return -1;
+                        }
+
+                        return hours * 60 + mins;
+                    }
+                    catch (...)
+                    {
+                        return -1; // Catch non-numeric input
+                    }
                 };
 
                 Insert i;
 
+                //safety enforcing logic for day value
+                cout<<"please enter day value beteween 0 to 6 (0 for Monday , 6 for Sunday"<<endl;
+
                 cout << "In which day you want to reserve slot : ";
                 cin >> i.day;
+                if(i.day<0 || i.day>6){
+                    cout<<"invalid day entered !!!"<<endl;
+                    break;
+                }
                 cout << endl;
 
                 cout << "Enter Subject Name : ";
@@ -1426,13 +1092,16 @@ int main()
                 string sessionName;
                 char group;
 
-                label :
-                cout<<"Must enter valid group (a / b)";
+                cout << "\nMust enter valid group (a / b)";
 
-                cout << "Enter Session(s) Name | group : ";
+                cout << "\nEnter Session(s) Name | group : ";
                 cin >> i.session >> i.group;
 
-                 if((i.group != 'a') || i.group!='b') goto label;
+                if ((i.group != 'a') && (i.group != 'b'))
+                { // Change || to &&
+                    cout << "Invalid group entered !!!" << endl;
+                    break;
+                }
                 // while (true)
                 // {
                 //     cout << "Enter Session(s) Name | group (0 to proceed): ";
@@ -1522,7 +1191,3 @@ int main()
 
     return 0;
 }
-
-
-
-
